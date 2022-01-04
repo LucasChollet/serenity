@@ -33,6 +33,7 @@ public:
         return vformat(*this, fmtstr.view(), variadic_format_params);
     }
     ErrorOr<void> try_append(char const*, size_t);
+    ErrorOr<void> try_append_repeated(char, size_t);
 
     void append(StringView);
     void append(Utf16View const&);
@@ -41,6 +42,7 @@ public:
     void append_code_point(u32);
     void append(char const*, size_t);
     void appendvf(char const*, va_list);
+    void append_repeated(char, size_t);
 
     void append_as_lowercase(char);
     void append_escaped_for_json(StringView);
