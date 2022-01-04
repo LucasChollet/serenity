@@ -48,14 +48,14 @@ CalculatorWidget::CalculatorWidget()
 
     m_clear_button = *find_descendant_of_type_named<GUI::Button>("clear_button");
     m_clear_button->on_click = [this](auto) {
-        m_keypad.set_value(0.0);
+        m_keypad.set_to_0();
         m_calculator.clear_operation();
         update_display();
     };
 
     m_clear_error_button = *find_descendant_of_type_named<GUI::Button>("clear_error_button");
     m_clear_error_button->on_click = [this](auto) {
-        m_keypad.set_value(0.0);
+        m_keypad.set_to_0();
         update_display();
     };
 
@@ -148,7 +148,7 @@ void CalculatorWidget::update_display()
 
 void CalculatorWidget::keydown_event(GUI::KeyEvent& event)
 {
-    //Clear button selection when we are typing
+    // Clear button selection when we are typing
     m_equals_button->set_focus(true);
     m_equals_button->set_focus(false);
 
@@ -159,7 +159,7 @@ void CalculatorWidget::keydown_event(GUI::KeyEvent& event)
     } else if (event.code_point() == '.') {
         m_keypad.type_decimal_point();
     } else if (event.key() == KeyCode::Key_Escape) {
-        m_keypad.set_value(0.0);
+        m_keypad.set_to_0();
         m_calculator.clear_operation();
     } else if (event.key() == KeyCode::Key_Backspace) {
         m_keypad.type_backspace();

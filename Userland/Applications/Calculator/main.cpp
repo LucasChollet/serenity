@@ -58,10 +58,10 @@ ErrorOr<int> serenity_main(Main::Arguments arguments)
 
     auto& constants_menu = window->add_menu("&Constants");
     constants_menu.add_action(GUI::Action::create("&Pi", [&](auto&) {
-        widget->set_entry(KeypadValue { 31415926535, 10 });
+        widget->set_entry(KeypadValue { Crypto::SignedBigInteger::create_from(31415926535), 10 });
     }));
     constants_menu.add_action(GUI::Action::create("&Euler's Constant", [&](auto&) {
-        widget->set_entry(KeypadValue { 27182818284, 10 });
+        widget->set_entry(KeypadValue { Crypto::SignedBigInteger::create_from(27182818284), 10 });
     }));
 
     auto& help_menu = window->add_menu("&Help");
