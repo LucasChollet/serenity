@@ -33,15 +33,15 @@ public:
 
     UnsignedBigInteger() { }
 
-    static UnsignedBigInteger create_invalid();
+    [[nodiscard]] static UnsignedBigInteger create_invalid();
 
-    static UnsignedBigInteger import_data(StringView data) { return import_data((const u8*)data.characters_without_null_termination(), data.length()); }
-    static UnsignedBigInteger import_data(const u8* ptr, size_t length)
+    [[nodiscard]] static UnsignedBigInteger import_data(StringView data) { return import_data((const u8*)data.characters_without_null_termination(), data.length()); }
+    [[nodiscard]] static UnsignedBigInteger import_data(const u8* ptr, size_t length)
     {
         return UnsignedBigInteger(ptr, length);
     }
 
-    static UnsignedBigInteger create_from(u64 value)
+    [[nodiscard]] static UnsignedBigInteger create_from(u64 value)
     {
         VERIFY(sizeof(Word) == 4);
         UnsignedBigInteger integer;
@@ -53,13 +53,13 @@ public:
 
     size_t export_data(Bytes, bool remove_leading_zeros = false) const;
 
-    static UnsignedBigInteger from_base(u16 N, const String& str);
-    String to_base(u16 N) const;
+    [[nodiscard]] static UnsignedBigInteger from_base(u16 N, const String& str);
+    [[nodiscard]] String to_base(u16 N) const;
 
-    u64 to_u64() const;
-    double to_double() const;
+    [[nodiscard]] u64 to_u64() const;
+    [[nodiscard]] double to_double() const;
 
-    const Vector<Word, STARTING_WORD_SIZE>& words() const { return m_words; }
+    [[nodiscard]] const Vector<Word, STARTING_WORD_SIZE>& words() const { return m_words; }
 
     void set_to_0();
     void set_to(Word other);
@@ -72,35 +72,35 @@ public:
         m_cached_hash = 0;
     }
 
-    bool is_odd() const { return m_words.size() && (m_words[0] & 1); }
-    bool is_invalid() const { return m_is_invalid; }
+    [[nodiscard]] bool is_odd() const { return m_words.size() && (m_words[0] & 1); }
+    [[nodiscard]] bool is_invalid() const { return m_is_invalid; }
 
-    size_t length() const { return m_words.size(); }
+    [[nodiscard]] size_t length() const { return m_words.size(); }
     // The "trimmed length" is the number of words after trimming leading zeroed words
-    size_t trimmed_length() const;
+    [[nodiscard]] size_t trimmed_length() const;
 
     void clamp_to_trimmed_length();
     void resize_with_leading_zeros(size_t num_words);
 
-    UnsignedBigInteger plus(const UnsignedBigInteger& other) const;
-    UnsignedBigInteger minus(const UnsignedBigInteger& other) const;
-    UnsignedBigInteger bitwise_or(const UnsignedBigInteger& other) const;
-    UnsignedBigInteger bitwise_and(const UnsignedBigInteger& other) const;
-    UnsignedBigInteger bitwise_xor(const UnsignedBigInteger& other) const;
-    UnsignedBigInteger bitwise_not() const;
-    UnsignedBigInteger shift_left(size_t num_bits) const;
-    UnsignedBigInteger multiplied_by(const UnsignedBigInteger& other) const;
-    UnsignedDivisionResult divided_by(const UnsignedBigInteger& divisor) const;
+    [[nodiscard]] UnsignedBigInteger plus(const UnsignedBigInteger& other) const;
+    [[nodiscard]] UnsignedBigInteger minus(const UnsignedBigInteger& other) const;
+    [[nodiscard]] UnsignedBigInteger bitwise_or(const UnsignedBigInteger& other) const;
+    [[nodiscard]] UnsignedBigInteger bitwise_and(const UnsignedBigInteger& other) const;
+    [[nodiscard]] UnsignedBigInteger bitwise_xor(const UnsignedBigInteger& other) const;
+    [[nodiscard]] UnsignedBigInteger bitwise_not() const;
+    [[nodiscard]] UnsignedBigInteger shift_left(size_t num_bits) const;
+    [[nodiscard]] UnsignedBigInteger multiplied_by(const UnsignedBigInteger& other) const;
+    [[nodiscard]] UnsignedDivisionResult divided_by(const UnsignedBigInteger& divisor) const;
 
-    u32 hash() const;
+    [[nodiscard]] u32 hash() const;
 
     void set_bit_inplace(size_t bit_index);
 
-    bool operator==(const UnsignedBigInteger& other) const;
-    bool operator!=(const UnsignedBigInteger& other) const;
-    bool operator<(const UnsignedBigInteger& other) const;
-    bool operator>(const UnsignedBigInteger& other) const;
-    bool operator>=(UnsignedBigInteger const& other) const;
+    [[nodiscard]] bool operator==(const UnsignedBigInteger& other) const;
+    [[nodiscard]] bool operator!=(const UnsignedBigInteger& other) const;
+    [[nodiscard]] bool operator<(const UnsignedBigInteger& other) const;
+    [[nodiscard]] bool operator>(const UnsignedBigInteger& other) const;
+    [[nodiscard]] bool operator>=(UnsignedBigInteger const& other) const;
 
 private:
     friend class UnsignedBigIntegerAlgorithms;
