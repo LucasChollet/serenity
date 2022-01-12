@@ -64,6 +64,19 @@ ErrorOr<int> serenity_main(Main::Arguments arguments)
         widget->set_entry(KeypadValue { Crypto::SignedBigInteger::create_from(27182818284), 10 });
     }));
 
+    auto& round_menu = window->add_menu("&Round");
+    round_menu.add_action(GUI::Action::create("&0", [&](auto& action) {
+        widget->set_rounding_length(action.text().substring(1).to_uint().value());
+    }));
+
+    round_menu.add_action(GUI::Action::create("&2", [&](auto& action) {
+        widget->set_rounding_length(action.text().substring(1).to_uint().value());
+    }));
+
+    round_menu.add_action(GUI::Action::create("&4", [&](auto& action) {
+        widget->set_rounding_length(action.text().substring(1).to_uint().value());
+    }));
+
     auto& help_menu = window->add_menu("&Help");
     help_menu.add_action(GUI::CommonActions::make_about_action("Calculator", app_icon, window));
 
