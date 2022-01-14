@@ -74,7 +74,7 @@ KeypadValue Calculator::begin_operation(Operation operation, KeypadValue argumen
     }
 
     if (should_be_rounded(res))
-        round(res);
+        res.round(rounding_threshold);
 
     return res;
 }
@@ -116,7 +116,7 @@ KeypadValue Calculator::finish_operation(KeypadValue argument)
     }
 
     if (should_be_rounded(res))
-        round(res);
+        res.round(rounding_threshold);
 
     clear_operation();
     return res;
@@ -135,23 +135,4 @@ bool Calculator::should_be_rounded(KeypadValue value)
     // If it does, the value can't be displayed (and provoke a division by zero), see Keypad::set_value()
     // For u64, the threshold is 19
     return value.m_decimal_places > rounding_threshold;
-}
-
-void Calculator::round(KeypadValue& value)
-{
-    while (value.m_decimal_places > rounding_threshold) {
-        auto const res = value.m_value.divided_by(Crypto::UnsignedBigInteger { 10 });
-        bool const need_increment = res.remainder.to_u64() > 4;
-
-        value.m_value = res.quotient;
-        if (need_increment)
-            value.m_value.set_to(value.m_value.plus(Crypto::UnsignedBigInteger { 1 }));
-
-        value.m_decimal_places.set_to(value.m_decimal_places.minus(Crypto::UnsignedBigInteger { 1 }));
-
-        if (value.m_value == Crypto::UnsignedBigInteger { 0 }) {
-            value.set_to_0();
-            return;
-        }
-    }
 }

@@ -48,7 +48,6 @@ public:
 
 private:
     static bool should_be_rounded(KeypadValue);
-    static void round(KeypadValue&);
 
     static constexpr auto rounding_threshold = []() consteval
     {
