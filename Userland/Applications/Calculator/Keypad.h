@@ -6,8 +6,8 @@
 
 #pragma once
 
-#include "KeypadValue.h"
 #include <AK/String.h>
+#include <LibCrypto/BigFraction/BigFraction.h>
 #include <LibCrypto/BigInt/UnsignedBigInteger.h>
 
 // This type implements number typing and
@@ -24,8 +24,8 @@ public:
     void type_decimal_point();
     void type_backspace();
 
-    KeypadValue value() const;
-    void set_value(KeypadValue);
+    Crypto::BigFraction value() const;
+    void set_value(Crypto::BigFraction const&);
     void set_to_0();
 
     void set_rounding_length(unsigned);
@@ -34,7 +34,8 @@ public:
 
 private:
     // Internal representation of the current decimal value.
-    bool m_negative { false };
+    // Those variables are only used when the user is entering a value.
+    // Otherwise, the KeypadValue m_internal_value is used.
     Crypto::UnsignedBigInteger m_int_value { 0 };
     Crypto::UnsignedBigInteger m_frac_value { 0 };
     Crypto::UnsignedBigInteger m_frac_length { 0 };
@@ -44,7 +45,9 @@ private:
     // m_frac_value = 4200
     // m_frac_length = 6
 
-    BigInteger::UnsignedBigInteger m_displayed_frac_length { 0 };
+    mutable Crypto::BigFraction m_internal_value {};
+
+    Crypto::UnsignedBigInteger m_displayed_frac_length { 0 };
 
     enum class State {
         External,

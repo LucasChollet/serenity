@@ -5,9 +5,9 @@
  */
 
 #include "Calculator.h"
-#include "KeypadValue.h"
 #include <AK/Assertions.h>
 #include <AK/Math.h>
+#include <LibCrypto/BigFraction/BigFraction.h>
 
 Calculator::Calculator()
 {
@@ -17,9 +17,9 @@ Calculator::~Calculator()
 {
 }
 
-KeypadValue Calculator::begin_operation(Operation operation, KeypadValue argument)
+Crypto::BigFraction Calculator::begin_operation(Operation operation, Crypto::BigFraction argument)
 {
-    KeypadValue res {};
+    Crypto::BigFraction res {};
 
     switch (operation) {
     case Operation::None:
@@ -34,15 +34,15 @@ KeypadValue Calculator::begin_operation(Operation operation, KeypadValue argumen
         return argument;
 
     case Operation::Sqrt:
-        if (argument < KeypadValue {}) {
+        if (argument < Crypto::BigFraction {}) {
             m_has_error = true;
             return argument;
         }
-        res = argument.sqrt();
+        res = argument.inexact_sqrt();
         clear_operation();
         break;
     case Operation::Inverse:
-        if (argument == KeypadValue {}) {
+        if (argument == Crypto::BigFraction {}) {
             m_has_error = true;
             return argument;
         }
@@ -50,7 +50,7 @@ KeypadValue Calculator::begin_operation(Operation operation, KeypadValue argumen
         clear_operation();
         break;
     case Operation::Percent:
-        res = argument * KeypadValue { 1, 2 }; // also known as `KeypadValue{0.01}`
+        res = argument * Crypto::BigFraction { 1, 2 }; // also known as `Crypto::BigFraction{0.01}`
         break;
     case Operation::ToggleSign:
         res = -argument;
@@ -76,9 +76,9 @@ KeypadValue Calculator::begin_operation(Operation operation, KeypadValue argumen
     return res;
 }
 
-KeypadValue Calculator::finish_operation(KeypadValue argument)
+Crypto::BigFraction Calculator::finish_operation(Crypto::BigFraction argument)
 {
-    KeypadValue res {};
+    Crypto::BigFraction res {};
 
     switch (m_operation_in_progress) {
     case Operation::None:
@@ -94,7 +94,7 @@ KeypadValue Calculator::finish_operation(KeypadValue argument)
         res = m_saved_argument * argument;
         break;
     case Operation::Divide:
-        if (argument == KeypadValue {}) {
+        if (argument == Crypto::BigFraction {}) {
             m_has_error = true;
             return argument;
         }

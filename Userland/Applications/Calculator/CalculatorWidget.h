@@ -9,8 +9,8 @@
 
 #include "Calculator.h"
 #include "Keypad.h"
-#include "KeypadValue.h"
 #include <AK/Vector.h>
+#include <LibCrypto/BigFraction/BigFraction.h>
 #include <LibGUI/Widget.h>
 
 class CalculatorWidget final : public GUI::Widget {
@@ -18,7 +18,7 @@ class CalculatorWidget final : public GUI::Widget {
 public:
     virtual ~CalculatorWidget() override;
     String get_entry();
-    void set_entry(KeypadValue);
+    void set_entry(Crypto::BigFraction);
 
     void set_rounding_length(unsigned);
 
