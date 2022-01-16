@@ -121,7 +121,8 @@ void CalculatorWidget::add_operation_button(GUI::Button& button, Calculator::Ope
 void CalculatorWidget::add_digit_button(GUI::Button& button, int digit)
 {
     button.on_click = [this, digit](auto) {
-        m_keypad.type_digit(digit);
+        auto const nb = m_keypad.type_digit(digit);
+        update_rounding(nb);
         update_display();
     };
 }
@@ -155,7 +156,8 @@ void CalculatorWidget::keydown_event(GUI::KeyEvent& event)
     if (event.key() == KeyCode::Key_Return || event.key() == KeyCode::Key_Equal) {
         m_keypad.set_value(m_calculator.finish_operation(m_keypad.value()));
     } else if (event.code_point() >= '0' && event.code_point() <= '9') {
-        m_keypad.type_digit(event.code_point() - '0');
+        auto const nb = m_keypad.type_digit(event.code_point() - '0');
+        update_rounding(nb);
     } else if (event.code_point() == '.') {
         m_keypad.type_decimal_point();
     } else if (event.key() == KeyCode::Key_Escape) {
@@ -196,4 +198,18 @@ void CalculatorWidget::set_rounding_length(unsigned rounding_threshold)
 {
     m_keypad.set_rounding_length(rounding_threshold);
     update_display();
+}
+
+void CalculatorWidget::set_rounding_custom(GUI::Action& action)
+{
+    m_rounding_custom = action;
+}
+
+void CalculatorWidget::update_rounding(unsigned needed_rounding)
+{
+    if (m_keypad.rounding_length() < needed_rounding) {
+        m_rounding_custom->set_text(String::formatted("&Custom: {}", needed_rounding));
+        m_rounding_custom->set_checked(true);
+        set_rounding_length(needed_rounding);
+    }
 }

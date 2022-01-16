@@ -9,6 +9,7 @@
 
 #include "Calculator.h"
 #include "Keypad.h"
+#include "LibGUI/Action.h"
 #include <AK/Vector.h>
 #include <LibCrypto/BigFraction/BigFraction.h>
 #include <LibGUI/Widget.h>
@@ -21,6 +22,7 @@ public:
     void set_entry(Crypto::BigFraction);
 
     void set_rounding_length(unsigned);
+    void set_rounding_custom(GUI::Action& action);
 
 private:
     CalculatorWidget();
@@ -28,6 +30,7 @@ private:
     void add_digit_button(GUI::Button&, int digit);
 
     void update_display();
+    void update_rounding(unsigned needed_rounding);
 
     virtual void keydown_event(GUI::KeyEvent&) override;
 
@@ -55,4 +58,6 @@ private:
     RefPtr<GUI::Button> m_inverse_button;
     RefPtr<GUI::Button> m_percent_button;
     RefPtr<GUI::Button> m_equals_button;
+
+    RefPtr<GUI::Action> m_rounding_custom;
 };

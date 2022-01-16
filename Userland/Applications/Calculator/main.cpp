@@ -5,6 +5,8 @@
  */
 
 #include "CalculatorWidget.h"
+#include "LibGUI/ActionGroup.h"
+#include "RoundingDialog.h"
 #include <LibCore/System.h>
 #include <LibCrypto/NumberTheory/ModularFunctions.h>
 #include <LibGUI/Action.h>
@@ -14,10 +16,7 @@
 #include <LibGUI/Menu.h>
 #include <LibGUI/Menubar.h>
 #include <LibGUI/Window.h>
-#include <LibGfx/Bitmap.h>
 #include <LibMain/Main.h>
-#include <stdio.h>
-#include <unistd.h>
 
 ErrorOr<int> serenity_main(Main::Arguments arguments)
 {
@@ -68,17 +67,41 @@ ErrorOr<int> serenity_main(Main::Arguments arguments)
     }));
 
     auto& round_menu = window->add_menu("&Round");
-    round_menu.add_action(GUI::Action::create("&0", [&](auto& action) {
-        widget->set_rounding_length(action.text().substring(1).to_uint().value());
-    }));
+    GUI::ActionGroup preview_actions;
 
-    round_menu.add_action(GUI::Action::create("&2", [&](auto& action) {
+    auto round_0 = GUI::Action::create_checkable("&0", [&](auto& action) {
         widget->set_rounding_length(action.text().substring(1).to_uint().value());
-    }));
+    });
 
-    round_menu.add_action(GUI::Action::create("&4", [&](auto& action) {
+    auto round_2 = GUI::Action::create_checkable("&2", [&](auto& action) {
         widget->set_rounding_length(action.text().substring(1).to_uint().value());
-    }));
+    });
+    round_2->activate(round_2);
+
+    auto round_4 = GUI::Action::create_checkable("&4", [&](auto& action) {
+        widget->set_rounding_length(action.text().substring(1).to_uint().value());
+    });
+
+    auto round_custom = GUI::Action::create_checkable("&Custom: 0", [&](auto& action) {
+        unsigned custom_rounding_length = 0;
+        RoundingDialog::show(window, custom_rounding_length);
+
+        action.set_text(String::formatted("&Custom: {}", custom_rounding_length));
+        widget->set_rounding_length(custom_rounding_length);
+    });
+
+    widget->set_rounding_custom(round_custom);
+
+    preview_actions.add_action(*round_0);
+    preview_actions.add_action(*round_2);
+    preview_actions.add_action(*round_4);
+    preview_actions.add_action(*round_custom);
+    preview_actions.set_exclusive(true);
+
+    round_menu.add_action(*round_0);
+    round_menu.add_action(*round_2);
+    round_menu.add_action(*round_4);
+    round_menu.add_action(*round_custom);
 
     auto& help_menu = window->add_menu("&Help");
     help_menu.add_action(GUI::CommonActions::make_about_action("Calculator", app_icon, window));

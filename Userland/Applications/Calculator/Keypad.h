@@ -20,7 +20,7 @@ public:
     Keypad();
     ~Keypad();
 
-    void type_digit(int digit);
+    unsigned type_digit(int digit);
     void type_decimal_point();
     void type_backspace();
 
@@ -29,6 +29,7 @@ public:
     void set_to_0();
 
     void set_rounding_length(unsigned);
+    unsigned rounding_length() const;
 
     String to_string() const;
 

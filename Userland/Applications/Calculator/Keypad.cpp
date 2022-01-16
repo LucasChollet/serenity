@@ -20,7 +20,7 @@ Keypad::~Keypad()
 {
 }
 
-void Keypad::type_digit(int digit)
+unsigned Keypad::type_digit(int digit)
 {
     switch (m_state) {
     case State::External:
@@ -42,6 +42,7 @@ void Keypad::type_digit(int digit)
         m_frac_length.set_to(m_frac_length.plus(1));
         break;
     }
+    return m_frac_length.to_u64();
 }
 
 void Keypad::type_decimal_point()
@@ -148,4 +149,9 @@ String Keypad::to_string() const
 void Keypad::set_rounding_length(unsigned rounding_threshold)
 {
     m_displayed_frac_length = Crypto::UnsignedBigInteger::create_from(rounding_threshold);
+}
+
+unsigned Keypad::rounding_length() const
+{
+    return m_displayed_frac_length.to_u64();
 }
