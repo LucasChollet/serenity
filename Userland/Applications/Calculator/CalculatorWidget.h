@@ -21,6 +21,7 @@ public:
     String get_entry();
     void set_entry(Crypto::BigFraction);
 
+    void shrink(unsigned);
     void set_rounding_length(unsigned);
     void set_rounding_custom(GUI::Action& action);
 

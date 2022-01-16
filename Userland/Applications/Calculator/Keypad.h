@@ -28,6 +28,7 @@ public:
     void set_value(Crypto::BigFraction const&);
     void set_to_0();
 
+    void shrink(unsigned);
     void set_rounding_length(unsigned);
     unsigned rounding_length() const;
 
