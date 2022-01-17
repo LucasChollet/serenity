@@ -25,6 +25,11 @@ public:
     BigFraction operator*(BigFraction const&) const;
     BigFraction operator/(BigFraction const&) const;
 
+    BigFraction& operator+=(BigFraction const&);
+    BigFraction& operator-=(BigFraction const&);
+    BigFraction& operator*=(BigFraction const&);
+    BigFraction& operator/=(BigFraction const&);
+
     BigFraction operator-(void) const;
 
     bool operator<(BigFraction const&) const;

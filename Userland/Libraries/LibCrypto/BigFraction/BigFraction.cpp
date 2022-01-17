@@ -44,33 +44,78 @@ BigFraction::BigFraction(StringView sv)
     }
 };
 
-BigFraction BigFraction::operator+(BigFraction const& rhs) const
+BigFraction& BigFraction::operator+=(const BigFraction& rhs)
 {
     if (rhs.m_numerator == "0"_bigint)
         return *this;
 
+    m_numerator.set_to(m_numerator.multiplied_by(rhs.m_denominator).plus(rhs.m_numerator.multiplied_by(m_denominator)));
+    m_denominator.set_to(m_denominator.multiplied_by(rhs.m_denominator));
+
+    reduce();
+
+    return *this;
+}
+
+BigFraction& BigFraction::operator-=(const BigFraction& rhs)
+{
+    if (rhs.m_numerator == "0"_bigint)
+        return *this;
+
+    *this += -rhs;
+    return *this;
+}
+
+BigFraction& BigFraction::operator*=(const BigFraction& rhs)
+{
+    m_numerator.set_to(m_numerator.multiplied_by(rhs.m_numerator));
+    m_denominator.set_to(m_denominator.multiplied_by(rhs.m_denominator));
+
+    reduce();
+
+    return *this;
+}
+
+BigFraction& BigFraction::operator/=(const BigFraction& rhs)
+{
+    VERIFY(rhs.m_numerator != "0"_bigint);
+
+    m_numerator.set_to(m_numerator.multiplied_by(rhs.m_denominator));
+    m_denominator.set_to(m_denominator.multiplied_by(rhs.m_numerator.unsigned_value()));
+
+    if (rhs.m_numerator.is_negative())
+        m_numerator.negate();
+
+    reduce();
+
+    return *this;
+}
+
+BigFraction BigFraction::operator+(BigFraction const& rhs) const
+{
     auto tmp = *this;
-    tmp.m_numerator.set_to(m_numerator.multiplied_by(rhs.m_denominator).plus(rhs.m_numerator.multiplied_by(m_denominator)));
-    tmp.m_denominator.set_to(m_denominator.multiplied_by(rhs.m_denominator));
-
-    tmp.reduce();
-
+    tmp += rhs;
     return tmp;
 }
 
 BigFraction BigFraction::operator-(BigFraction const& rhs) const
 {
-    return *this + (-rhs);
+    auto tmp = *this;
+    tmp -= rhs;
+    return tmp;
 }
 
 BigFraction BigFraction::operator*(BigFraction const& rhs) const
 {
     auto tmp = *this;
-    tmp.m_numerator.set_to(tmp.m_numerator.multiplied_by(rhs.m_numerator));
-    tmp.m_denominator.set_to(tmp.m_denominator.multiplied_by(rhs.m_denominator));
+    tmp *= rhs;
+    return tmp;
+}
 
-    tmp.reduce();
-
+BigFraction BigFraction::operator/(BigFraction const& rhs) const
+{
+    auto tmp = *this;
+    tmp /= rhs;
     return tmp;
 }
 
@@ -84,21 +129,6 @@ BigFraction BigFraction::invert(void) const
     return BigFraction { 1 } / *this;
 }
 
-BigFraction BigFraction::operator/(BigFraction const& rhs) const
-{
-    VERIFY(rhs.m_numerator != "0"_bigint);
-
-    auto tmp = *this;
-    tmp.m_numerator.set_to(m_numerator.multiplied_by(rhs.m_denominator));
-    tmp.m_denominator.set_to(m_denominator.multiplied_by(rhs.m_numerator.unsigned_value()));
-
-    if (rhs.m_numerator.is_negative())
-        tmp.m_numerator.negate();
-
-    tmp.reduce();
-
-    return tmp;
-}
 
 bool BigFraction::operator<(BigFraction const& rhs) const
 {
