@@ -9,14 +9,6 @@
 #include <AK/Math.h>
 #include <LibCrypto/BigFraction/BigFraction.h>
 
-Calculator::Calculator()
-{
-}
-
-Calculator::~Calculator()
-{
-}
-
 Crypto::BigFraction Calculator::begin_operation(Operation operation, Crypto::BigFraction argument)
 {
     Crypto::BigFraction res {};
