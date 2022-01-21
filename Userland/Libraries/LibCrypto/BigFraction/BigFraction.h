@@ -35,6 +35,7 @@ public:
     bool operator<(BigFraction const&) const;
     bool operator==(BigFraction const&) const;
 
+    BigFraction abs() const;
     BigFraction invert() const;
     BigFraction inexact_sqrt() const;
 

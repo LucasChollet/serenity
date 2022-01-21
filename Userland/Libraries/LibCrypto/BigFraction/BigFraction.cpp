@@ -124,6 +124,13 @@ BigFraction BigFraction::operator-(void) const
     return { m_numerator.negated_value(), m_denominator };
 }
 
+BigFraction BigFraction::abs() const
+{
+    if (m_numerator.is_negative())
+        return -*this;
+    return *this;
+}
+
 BigFraction BigFraction::invert(void) const
 {
     return BigFraction { 1 } / *this;
