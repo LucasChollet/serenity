@@ -46,7 +46,7 @@ public:
 
     ALWAYS_INLINE Optional(Optional const& other)
 #ifdef AK_HAS_CONDITIONALLY_TRIVIAL
-        requires(!IsTriviallyCopyConstructible<T>)
+        requires(!IsTriviallyCopyConstructible<T> && IsCopyConstructible<T>)
 #endif
         : m_has_value(other.m_has_value)
     {
