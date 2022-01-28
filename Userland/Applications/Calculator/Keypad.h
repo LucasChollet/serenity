@@ -29,7 +29,7 @@ public:
     void set_to_0();
 
     void shrink(unsigned);
-    void set_rounding_length(unsigned);
+    void set_precision(unsigned);
     unsigned rounding_length() const;
 
     String to_string() const;

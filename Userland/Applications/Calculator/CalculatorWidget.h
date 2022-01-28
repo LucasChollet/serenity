@@ -22,12 +22,13 @@ public:
     void set_entry(Crypto::BigFraction);
 
     void shrink(unsigned);
-    void set_rounding_length(unsigned);
+    void set_precision(unsigned);
     void set_rounding_custom(GUI::Action& action);
 
 private:
     CalculatorWidget();
-    void add_operation_button(GUI::Button&, Calculator::Operation);
+    template<typename Operation>
+    void add_operation_button(GUI::Button&, Operation);
     void add_digit_button(GUI::Button&, int digit);
 
     void update_display();
@@ -35,7 +36,7 @@ private:
 
     virtual void keydown_event(GUI::KeyEvent&) override;
 
-    Calculator m_calculator;
+    Calculator m_calculator {};
     Keypad m_keypad;
 
     RefPtr<GUI::TextBox> m_entry;

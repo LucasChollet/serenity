@@ -70,16 +70,16 @@ ErrorOr<int> serenity_main(Main::Arguments arguments)
     GUI::ActionGroup preview_actions;
 
     auto round_0 = GUI::Action::create_checkable("&0", [&](auto& action) {
-        widget->set_rounding_length(action.text().substring(1).to_uint().value());
+        widget->set_precision(action.text().substring(1).to_uint().value());
     });
 
     auto round_2 = GUI::Action::create_checkable("&2", [&](auto& action) {
-        widget->set_rounding_length(action.text().substring(1).to_uint().value());
+        widget->set_precision(action.text().substring(1).to_uint().value());
     });
     round_2->activate(round_2);
 
     auto round_4 = GUI::Action::create_checkable("&4", [&](auto& action) {
-        widget->set_rounding_length(action.text().substring(1).to_uint().value());
+        widget->set_precision(action.text().substring(1).to_uint().value());
     });
 
     auto round_custom = GUI::Action::create_checkable("&Custom: 0", [&](auto& action) {
@@ -87,7 +87,7 @@ ErrorOr<int> serenity_main(Main::Arguments arguments)
         RoundingDialog::show(window, "Choose custom rounding"sv, custom_rounding_length);
 
         action.set_text(String::formatted("&Custom: {}", custom_rounding_length));
-        widget->set_rounding_length(custom_rounding_length);
+        widget->set_precision(custom_rounding_length);
     });
 
     widget->set_rounding_custom(round_custom);
@@ -98,7 +98,7 @@ ErrorOr<int> serenity_main(Main::Arguments arguments)
 
         round_custom->set_checked(true);
         round_custom->set_text(String::formatted("&Custom: {}", shrink_length));
-        widget->set_rounding_length(shrink_length);
+        widget->set_precision(shrink_length);
         widget->shrink(shrink_length);
     });
 

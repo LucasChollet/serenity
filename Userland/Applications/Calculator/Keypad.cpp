@@ -146,9 +146,9 @@ String Keypad::to_string() const
     return builder.to_string();
 }
 
-void Keypad::set_rounding_length(unsigned rounding_threshold)
+void Keypad::set_precision(unsigned precision)
 {
-    m_displayed_frac_length = Crypto::UnsignedBigInteger::create_from(rounding_threshold);
+    m_displayed_frac_length = Crypto::UnsignedBigInteger::create_from(precision);
 }
 
 unsigned Keypad::rounding_length() const

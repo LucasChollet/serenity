@@ -35,16 +35,16 @@ CalculatorWidget::CalculatorWidget()
     }
 
     m_mem_add_button = *find_descendant_of_type_named<GUI::Button>("mem_add_button");
-    add_operation_button(*m_mem_add_button, Calculator::Operation::MemAdd);
+    add_operation_button(*m_mem_add_button, Calculator::MemoryOperation::MemAdd);
 
     m_mem_save_button = *find_descendant_of_type_named<GUI::Button>("mem_save_button");
-    add_operation_button(*m_mem_save_button, Calculator::Operation::MemSave);
+    add_operation_button(*m_mem_save_button, Calculator::MemoryOperation::MemSave);
 
     m_mem_recall_button = *find_descendant_of_type_named<GUI::Button>("mem_recall_button");
-    add_operation_button(*m_mem_recall_button, Calculator::Operation::MemRecall);
+    add_operation_button(*m_mem_recall_button, Calculator::MemoryOperation::MemRecall);
 
     m_mem_clear_button = *find_descendant_of_type_named<GUI::Button>("mem_clear_button");
-    add_operation_button(*m_mem_clear_button, Calculator::Operation::MemClear);
+    add_operation_button(*m_mem_clear_button, Calculator::MemoryOperation::MemClear);
 
     m_clear_button = *find_descendant_of_type_named<GUI::Button>("clear_button");
     m_clear_button->on_click = [this](auto) {
@@ -72,33 +72,32 @@ CalculatorWidget::CalculatorWidget()
     };
 
     m_sign_button = *find_descendant_of_type_named<GUI::Button>("sign_button");
-    add_operation_button(*m_sign_button, Calculator::Operation::ToggleSign);
+    add_operation_button(*m_sign_button, Calculation::Operation::ToggleSign);
 
     m_add_button = *find_descendant_of_type_named<GUI::Button>("add_button");
-    add_operation_button(*m_add_button, Calculator::Operation::Add);
+    add_operation_button(*m_add_button, Calculation::Operation::Add);
 
     m_subtract_button = *find_descendant_of_type_named<GUI::Button>("subtract_button");
-    add_operation_button(*m_subtract_button, Calculator::Operation::Subtract);
+    add_operation_button(*m_subtract_button, Calculation::Operation::Subtract);
 
     m_multiply_button = *find_descendant_of_type_named<GUI::Button>("multiply_button");
-    add_operation_button(*m_multiply_button, Calculator::Operation::Multiply);
+    add_operation_button(*m_multiply_button, Calculation::Operation::Multiply);
 
     m_divide_button = *find_descendant_of_type_named<GUI::Button>("divide_button");
-    add_operation_button(*m_divide_button, Calculator::Operation::Divide);
+    add_operation_button(*m_divide_button, Calculation::Operation::Divide);
 
     m_sqrt_button = *find_descendant_of_type_named<GUI::Button>("sqrt_button");
-    add_operation_button(*m_sqrt_button, Calculator::Operation::Sqrt);
+    add_operation_button(*m_sqrt_button, Calculation::Operation::Sqrt);
 
     m_inverse_button = *find_descendant_of_type_named<GUI::Button>("inverse_button");
-    add_operation_button(*m_inverse_button, Calculator::Operation::Inverse);
+    add_operation_button(*m_inverse_button, Calculation::Operation::Inverse);
 
     m_percent_button = *find_descendant_of_type_named<GUI::Button>("mod_button");
-    add_operation_button(*m_percent_button, Calculator::Operation::Percent);
+    add_operation_button(*m_percent_button, Calculation::Operation::Percent);
 
     m_equals_button = *find_descendant_of_type_named<GUI::Button>("equal_button");
     m_equals_button->on_click = [this](auto) {
-        Crypto::BigFraction argument = m_keypad.value();
-        Crypto::BigFraction res = m_calculator.finish_operation(argument);
+        Crypto::BigFraction res = m_calculator.operate(Calculation::Operation::None, m_keypad.value());
         m_keypad.set_value(res);
         update_display();
     };
@@ -108,12 +107,12 @@ CalculatorWidget::~CalculatorWidget()
 {
 }
 
-void CalculatorWidget::add_operation_button(GUI::Button& button, Calculator::Operation operation)
+template<typename Operation>
+void CalculatorWidget::add_operation_button(GUI::Button& button, Operation operation)
 {
     button.on_click = [this, operation](auto) {
-        Crypto::BigFraction argument = m_keypad.value();
-        Crypto::BigFraction res = m_calculator.begin_operation(operation, argument);
-        m_keypad.set_value(res);
+        Crypto::BigFraction res = m_calculator.operate(operation, m_keypad.value());
+        m_keypad.set_value(move(res));
         update_display();
     };
 }
@@ -122,6 +121,8 @@ void CalculatorWidget::add_digit_button(GUI::Button& button, int digit)
 {
     button.on_click = [this, digit](auto) {
         auto const nb = m_keypad.type_digit(digit);
+        if (!m_calculator.m_current.is_empty())
+            m_calculator.m_current.clear();
         update_rounding(nb);
         update_display();
     };
@@ -154,9 +155,11 @@ void CalculatorWidget::keydown_event(GUI::KeyEvent& event)
     m_equals_button->set_focus(false);
 
     if (event.key() == KeyCode::Key_Return || event.key() == KeyCode::Key_Equal) {
-        m_keypad.set_value(m_calculator.finish_operation(m_keypad.value()));
+        m_keypad.set_value(m_calculator.operate(Calculation::Operation::None, m_keypad.value()));
     } else if (event.code_point() >= '0' && event.code_point() <= '9') {
         auto const nb = m_keypad.type_digit(event.code_point() - '0');
+        if (!m_calculator.m_current.is_empty())
+            m_calculator.m_current.clear();
         update_rounding(nb);
     } else if (event.code_point() == '.') {
         m_keypad.type_decimal_point();
@@ -166,29 +169,25 @@ void CalculatorWidget::keydown_event(GUI::KeyEvent& event)
     } else if (event.key() == KeyCode::Key_Backspace) {
         m_keypad.type_backspace();
     } else {
-        Calculator::Operation operation;
-
         switch (event.code_point()) {
         case '+':
-            operation = Calculator::Operation::Add;
+            m_add_button->click();
             break;
         case '-':
-            operation = Calculator::Operation::Subtract;
+            m_subtract_button->click();
             break;
         case '*':
-            operation = Calculator::Operation::Multiply;
+            m_multiply_button->click();
             break;
         case '/':
-            operation = Calculator::Operation::Divide;
+            m_divide_button->click();
             break;
         case '%':
-            operation = Calculator::Operation::Percent;
+            m_percent_button->click();
             break;
         default:
             return;
         }
-
-        m_keypad.set_value(m_calculator.begin_operation(operation, m_keypad.value()));
     }
 
     update_display();
@@ -200,9 +199,11 @@ void CalculatorWidget::shrink(unsigned shrink_threshold)
     update_display();
 }
 
-void CalculatorWidget::set_rounding_length(unsigned rounding_threshold)
+void CalculatorWidget::set_precision(unsigned precision)
 {
-    m_keypad.set_rounding_length(rounding_threshold);
+    m_keypad.set_precision(precision);
+    m_calculator.set_precision(precision);
+    m_keypad.set_value(m_calculator.m_current.result());
     update_display();
 }
 
@@ -216,6 +217,6 @@ void CalculatorWidget::update_rounding(unsigned needed_rounding)
     if (m_keypad.rounding_length() < needed_rounding) {
         m_rounding_custom->set_text(String::formatted("&Custom: {}", needed_rounding));
         m_rounding_custom->set_checked(true);
-        set_rounding_length(needed_rounding);
+        set_precision(needed_rounding);
     }
 }

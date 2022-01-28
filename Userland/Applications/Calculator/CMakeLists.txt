@@ -8,6 +8,7 @@ compile_gml(CalculatorWindow.gml CalculatorGML.h calculator_gml)
 set(SOURCES
     main.cpp
     Calculator.cpp
+    Calculation.cpp
     CalculatorWidget.cpp
     RoundingDialog.cpp
     Keypad.cpp
