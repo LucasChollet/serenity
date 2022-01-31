@@ -31,7 +31,7 @@ void Calculation::compute_result()
 
     Crypto::BigFraction result {};
     dbgln("Vector list:");
-    // TODO inlined precision needs fulfillment
+    // TODO: Remove dbgln
     for (unsigned i = m_last_computed_index; i < m_operation_list.size(); ++i) {
         auto& value = m_operation_list[i];
 
@@ -48,6 +48,9 @@ void Calculation::compute_result()
                 return value.approximate_value.value().value();
             return result / Crypto::BigFraction { 2 };
         };
+
+        // Pour z = x * y
+        // delta z = x * y (delta x / x + delta y / y)
 
         switch (m_operation_list[i].operation) {
         case Operation::None:
@@ -72,7 +75,7 @@ void Calculation::compute_result()
             if (result == Crypto::BigFraction { 0 })
                 break;
 
-            value.approximate_value = Crypto::NewtonMethod([=](auto const& x) -> Crypto::BigFraction { return x * x - result; }, [](auto const& x) -> Crypto::BigFraction { return Crypto::BigFraction { 2 } * x; }, m_needed_precision, last_value());
+            value.approximate_value = Crypto::NewtonMethod([=](auto const& x) { return x * x - result; }, [](auto const& x) { return Crypto::BigFraction { 2 } * x; }, m_needed_precision, last_value());
             result = value.approximate_value->value();
             m_operation_list[i].precision = m_needed_precision;
             break;
