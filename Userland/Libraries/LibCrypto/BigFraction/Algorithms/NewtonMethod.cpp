@@ -54,9 +54,6 @@ BigFraction NewtonMethod::value()
             m_actual_precision++;
     }
 
-    if (m_actual_precision > m_needed_precision)
-        return m_y.rounded(m_needed_precision);
-
     return m_y;
 }
 
