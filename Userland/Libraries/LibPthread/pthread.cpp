@@ -38,6 +38,9 @@ static constexpr size_t highest_reasonable_stack_size = 8 * MiB; // That's the d
 __thread void* s_stack_location;
 __thread size_t s_stack_size;
 
+thread_local int s_cancel_state { PTHREAD_CANCEL_ENABLE };
+thread_local int s_cancel_type { PTHREAD_CANCEL_DEFERRED };
+
 struct CleanupHandler {
     void (*function)(void*) { nullptr };
     void* argument { nullptr };
@@ -500,10 +503,16 @@ int pthread_setschedparam([[maybe_unused]] pthread_t thread, [[maybe_unused]] in
 }
 
 // https://pubs.opengroup.org/onlinepubs/009695399/functions/pthread_cancel.html
-// NOTE: libgcc expects this function to exist in libpthread, even if it is not implemented.
-int pthread_cancel(pthread_t)
+int pthread_cancel(pthread_t thread)
 {
-    TODO();
+    int rc = syscall(SC_cancel_thread, thread);
+    __RETURN_PTHREAD_ERROR(rc);
+}
+
+// https://pubs.opengroup.org/onlinepubs/009695399/functions/pthread_testcancel.html
+void pthread_testcancel()
+{
+    [[maybe_unused]] int rc = syscall(SC_test_cancel_thread);
 }
 
 // https://pubs.opengroup.org/onlinepubs/009695399/functions/pthread_key_create.html
@@ -547,22 +556,22 @@ int pthread_getname_np(pthread_t thread, char* buffer, size_t buffer_size)
 // https://pubs.opengroup.org/onlinepubs/009695399/functions/pthread_setcancelstate.html
 int pthread_setcancelstate(int state, int* oldstate)
 {
-    if (oldstate)
-        *oldstate = PTHREAD_CANCEL_DISABLE;
-    dbgln("FIXME: Implement pthread_setcancelstate({}, ...)", state);
-    if (state != PTHREAD_CANCEL_DISABLE)
+    if (state != PTHREAD_CANCEL_ENABLE && state != PTHREAD_CANCEL_DISABLE)
         return EINVAL;
+
+    *oldstate = s_cancel_state;
+    s_cancel_state = state;
     return 0;
 }
 
 // https://pubs.opengroup.org/onlinepubs/009695399/functions/pthread_setcanceltype.html
 int pthread_setcanceltype(int type, int* oldtype)
 {
-    if (oldtype)
-        *oldtype = PTHREAD_CANCEL_DEFERRED;
-    dbgln("FIXME: Implement pthread_setcanceltype({}, ...)", type);
-    if (type != PTHREAD_CANCEL_DEFERRED)
+    if (type != PTHREAD_CANCEL_DEFERRED && type != PTHREAD_CANCEL_ASYNCHRONOUS)
         return EINVAL;
+
+    *oldtype = s_cancel_type;
+    s_cancel_type = type;
     return 0;
 }
 
