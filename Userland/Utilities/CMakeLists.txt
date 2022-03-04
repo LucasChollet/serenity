@@ -1,11 +1,11 @@
 file(GLOB CMD_SOURCES  CONFIGURE_DEPENDS "*.cpp")
 list(APPEND SPECIAL_TARGETS test install)
 list(APPEND REQUIRED_TARGETS
-    arp base64 basename cat chmod chown clear comm cp cut date dd df diff dirname dmesg du echo env expr false fgrep
-    file find grep groups head host hostname id ifconfig kill killall ln logout ls mkdir mount mv nproc
-    pgrep pidof ping pmap ps readlink realpath reboot rm rmdir seq shutdown sleep sort stat stty su tail test
-    touch tr true umount uname uniq uptime w wc which whoami xargs yes less
-)
+        pthread arp base64 basename cat chmod chown clear comm cp cut date dd df diff dirname dmesg du echo env expr false fgrep
+        file find grep groups head host hostname id ifconfig kill killall ln logout ls mkdir mount mv nproc
+        pgrep pidof ping pmap ps readlink realpath reboot rm rmdir seq shutdown sleep sort stat stty su tail test
+        touch tr true umount uname uniq uptime w wc which whoami xargs yes less
+        )
 list(APPEND RECOMMENDED_TARGETS
     adjtime aplay abench asctl bt checksum chres cksum copy fortune gunzip gzip init install keymap lsirq lsof lspci man mknod mktemp
     nc netstat notify ntpquery open pape passwd pls printf pro shot tar tt unzip zip
@@ -56,6 +56,7 @@ target_link_libraries(adjtime LibMain)
 target_link_libraries(allocate LibMain)
 target_link_libraries(aplay LibAudio LibMain)
 target_link_libraries(arp LibMain)
+target_link_libraries(pthread LibPthread)
 target_link_libraries(asctl LibAudio LibMain)
 target_link_libraries(base64 LibMain)
 target_link_libraries(basename LibMain)

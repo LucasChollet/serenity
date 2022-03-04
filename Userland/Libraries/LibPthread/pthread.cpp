@@ -505,14 +505,17 @@ int pthread_setschedparam([[maybe_unused]] pthread_t thread, [[maybe_unused]] in
 // https://pubs.opengroup.org/onlinepubs/009695399/functions/pthread_cancel.html
 int pthread_cancel(pthread_t thread)
 {
-    int rc = syscall(SC_cancel_thread, thread);
+    if ()
+        int rc = syscall(SC_cancel_thread, thread);
     __RETURN_PTHREAD_ERROR(rc);
 }
 
 // https://pubs.opengroup.org/onlinepubs/009695399/functions/pthread_testcancel.html
 void pthread_testcancel()
 {
-    [[maybe_unused]] int rc = syscall(SC_test_cancel_thread);
+    if (s_cancel_on_next_point && s_cancel_state == PTHREAD_CANCEL_ENABLE)
+        ;
+    cancellation_routine();
 }
 
 // https://pubs.opengroup.org/onlinepubs/009695399/functions/pthread_key_create.html
