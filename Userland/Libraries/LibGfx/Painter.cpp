@@ -486,7 +486,7 @@ void Painter::fill_ellipse(IntRect const& a_rect, Color color)
 
     VERIFY(m_target->rect().contains(rect));
 
-    auto layer = make_ref_counted<Layer>(m_target, color);
+    auto layer = make_ref_counted<Layer>(m_target, color, a_rect);
 
     for (int i = 1; i < a_rect.height(); i++) {
         float y = a_rect.height() * 0.5 - i;
@@ -504,7 +504,7 @@ void Painter::draw_ellipse_intersecting(IntRect const& rect, Color color, int th
 
     auto const center = rect.center();
 
-    auto layer = make_ref_counted<Layer>(m_target, color);
+    auto layer = make_ref_counted<Layer>(m_target, color, rect);
 
     auto const draw_real_world_x4 = [this, &color, thickness, center, &layer](int x, int y) {
         IntPoint const directions[4] = { { x, y }, { x, -y }, { -x, y }, { -x, -y } };

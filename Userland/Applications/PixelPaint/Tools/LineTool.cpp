@@ -64,7 +64,9 @@ void LineTool::draw_using(GUI::Painter& painter, Gfx::IntPoint const& start_posi
         };
         aa_painter.draw_line(as_float_point(start_position), as_float_point(end_position), color, thickness);
     } else {
-        auto layer = make_ref_counted<Gfx::Layer>(painter.target(), color);
+        auto rect = Gfx::IntRect::from_two_points(start_position, end_position);
+        rect.scale_by((rect.width() + thickness) / (rect.width() == 0 ? 1 : rect.width()), (rect.height() + thickness) / (rect.height() == 0 ? 1 : rect.height()));
+        auto layer = make_ref_counted<Gfx::Layer>(painter.target(), color, rect);
         painter.draw_line(start_position, end_position, color, thickness, {}, {}, layer);
     }
 }

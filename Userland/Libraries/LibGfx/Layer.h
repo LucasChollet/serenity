@@ -17,7 +17,7 @@ namespace Gfx {
 
 class Layer : public RefCounted<Layer> {
 public:
-    Layer(NonnullRefPtr<Bitmap> target, Color color);
+    Layer(NonnullRefPtr<Bitmap> target, Color color, IntRect const& outer_rect);
     ~Layer();
 
     void add_point(IntPoint const& position, Color color);
@@ -27,7 +27,8 @@ private:
 
     NonnullRefPtr<Bitmap> m_target;
 
-    HashTable<IntPoint> m_points {};
+    RefPtr<Bitmap> m_points;
+    IntPoint m_bitmap_top_left;
     Color m_color {};
 };
 
