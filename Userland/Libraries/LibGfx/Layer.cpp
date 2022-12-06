@@ -15,7 +15,8 @@ Layer::Layer(NonnullRefPtr<Bitmap> target, Gfx::Color color, IntRect const& oute
     , m_bitmap_top_left(outer_rect.top_left())
     , m_color(color)
 {
-    m_points = MUST(Bitmap::try_create(BitmapFormat::Indexed1, outer_rect.size()));
+    // FIXME: figure out how to extract the size from outer_rect
+    m_points = MUST(Bitmap::try_create(BitmapFormat::Indexed1, m_target->size()));
 }
 
 void Layer::add_point(Gfx::IntPoint const& position, Gfx::Color color)
@@ -30,7 +31,7 @@ void Layer::draw()
     for (int i {}; i < m_points->height(); ++i) {
         for (int j {}; j < m_points->width(); ++j) {
             if (m_points->scanline_u8(i)[j] == 1) {
-                auto& pixel = m_target->scanline(i + m_bitmap_top_left.y())[j + m_bitmap_top_left.x()];
+                auto& pixel = m_target->scanline(i)[j];
                 pixel = Color::from_argb(pixel).blend(m_color).value();
             }
         }
