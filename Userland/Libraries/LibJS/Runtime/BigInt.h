@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <AK/DeprecatedString.h>
 #include <AK/StringView.h>
 #include <LibCrypto/BigInt/SignedBigInteger.h>
 #include <LibJS/Heap/Cell.h>
@@ -21,7 +22,7 @@ public:
     virtual ~BigInt() override = default;
 
     Crypto::SignedBigInteger const& big_integer() const { return m_big_integer; }
-    const DeprecatedString to_deprecated_string() const { return DeprecatedString::formatted("{}n", m_big_integer.to_base(10)); }
+    DeprecatedString to_deprecated_string() const { return DeprecatedString::formatted("{}n", m_big_integer.to_base(10).release_value_but_fixme_should_propagate_errors()); }
 
 private:
     explicit BigInt(Crypto::SignedBigInteger);
