@@ -63,12 +63,19 @@ DeprecatedString SignedBigInteger::to_base(u16 N) const
     return builder.to_deprecated_string();
 }
 
-u64 SignedBigInteger::to_u64() const
+i64 SignedBigInteger::to_i64() const
 {
     u64 unsigned_value = m_unsigned_data.to_u64();
+    VERIFY(unsigned_value <= (u64)NumericLimits<i64>::max());
     if (!m_sign)
-        return unsigned_value;
-    return ~(unsigned_value - 1); // equivalent to `-unsigned_value`, but doesn't trigger UBSAN
+        return (i64)unsigned_value;
+    return (i64)(~(unsigned_value - 1)); // equivalent to `-unsigned_value`, but doesn't trigger UBSAN
+}
+
+u64 SignedBigInteger::to_u64() const
+{
+    VERIFY(!m_sign);
+    return m_unsigned_data.to_u64();
 }
 
 double SignedBigInteger::to_double(UnsignedBigInteger::RoundingMode rounding_mode) const

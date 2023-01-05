@@ -65,6 +65,7 @@ public:
     [[nodiscard]] static SignedBigInteger from_base(u16 N, StringView str);
     [[nodiscard]] DeprecatedString to_base(u16 N) const;
 
+    [[nodiscard]] i64 to_i64() const;
     [[nodiscard]] u64 to_u64() const;
     [[nodiscard]] double to_double(UnsignedBigInteger::RoundingMode rounding_mode = UnsignedBigInteger::RoundingMode::IEEERoundAndTiesToEvenMantissa) const;
 

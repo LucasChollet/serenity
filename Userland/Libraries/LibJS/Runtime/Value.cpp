@@ -831,7 +831,7 @@ ThrowCompletionOr<i64> Value::to_bigint_int64(VM& vm) const
 
     // 2. Let int64bit be ℝ(n) modulo 2^64.
     // 3. If int64bit ≥ 2^63, return ℤ(int64bit - 2^64); otherwise return ℤ(int64bit).
-    return static_cast<i64>(bigint->big_integer().to_u64());
+    return bigint->big_integer().to_i64();
 }
 
 // 7.1.16 ToBigUint64 ( argument ), https://tc39.es/ecma262/#sec-tobiguint64
