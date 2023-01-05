@@ -214,15 +214,21 @@ String::String()
 
 ErrorOr<String> String::from_utf8(StringView view)
 {
-    if (view.length() <= MAX_SHORT_STRING_BYTE_COUNT) {
-        ShortString short_string;
-        if (!view.is_empty())
-            memcpy(short_string.storage, view.characters_without_null_termination(), view.length());
-        short_string.byte_count_and_short_string_flag = (view.length() << 1) | SHORT_STRING_FLAG;
-        return String { short_string };
-    }
+    if (view.length() <= MAX_SHORT_STRING_BYTE_COUNT)
+        return small_string_from_utf8(view);
+
     auto data = TRY(Detail::StringData::from_utf8(view.characters_without_null_termination(), view.length()));
     return String { move(data) };
+}
+
+String String::small_string_from_utf8(StringView view)
+{
+    VERIFY(view.length() <= MAX_SHORT_STRING_BYTE_COUNT);
+    ShortString short_string;
+    if (!view.is_empty())
+        memcpy(short_string.storage, view.characters_without_null_termination(), view.length());
+    short_string.byte_count_and_short_string_flag = (view.length() << 1) | SHORT_STRING_FLAG;
+    return String { short_string };
 }
 
 StringView String::bytes_as_string_view() const

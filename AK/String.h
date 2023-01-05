@@ -43,6 +43,10 @@ public:
     // Creates a new String from a sequence of UTF-8 encoded code points.
     static ErrorOr<String> from_utf8(StringView);
 
+    // Creates a new String from a sequence of UTF-8 encoded code points,
+    // the StringView length should be smaller than MAX_SHORT_STRING_BYTE_COUNT.
+    static String small_string_from_utf8(StringView);
+
     // Creates a substring with a deep copy of the specified data window.
     ErrorOr<String> substring_from_byte_offset(size_t start, size_t byte_count) const;
 
