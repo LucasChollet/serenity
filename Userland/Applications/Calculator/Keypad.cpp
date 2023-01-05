@@ -111,28 +111,28 @@ void Keypad::set_to_0()
     m_state = State::External;
 }
 
-DeprecatedString Keypad::to_deprecated_string() const
+ErrorOr<String> Keypad::to_string() const
 {
     if (m_state == State::External)
-        return m_internal_value.to_deprecated_string(m_displayed_fraction_length);
+        return m_internal_value.to_string(m_displayed_fraction_length);
 
     StringBuilder builder;
 
-    DeprecatedString const integer_value = m_int_value.to_base(10);
-    DeprecatedString const frac_value = m_frac_value.to_base(10);
+    auto const integer_value = TRY(m_int_value.to_base(10)).bytes_as_string_view();
+    auto const frac_value = TRY(m_frac_value.to_base(10)).bytes_as_string_view();
     unsigned const number_pre_zeros = m_frac_length.to_u64() - (frac_value.length() - 1) - (frac_value == "0" ? 0 : 1);
 
-    builder.append(integer_value);
+    TRY(builder.try_append(integer_value));
 
     // NOTE: We test for the state so the decimal point appears on screen as soon as you type it.
     if (m_state == State::TypingDecimal) {
-        builder.append('.');
-        builder.append_repeated('0', number_pre_zeros);
+        TRY(builder.try_append('.'));
+        TRY(builder.try_append_repeated('0', number_pre_zeros));
         if (frac_value != "0")
-            builder.append(frac_value);
+            TRY(builder.try_append(frac_value));
     }
 
-    return builder.to_deprecated_string();
+    return builder.to_string();
 }
 
 bool Keypad::in_typing_state() const

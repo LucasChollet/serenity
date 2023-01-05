@@ -9,8 +9,10 @@
 #include <AK/BuiltinWrappers.h>
 #include <AK/CharacterTypes.h>
 #include <AK/FloatingPoint.h>
+#include <AK/String.h>
 #include <AK/StringBuilder.h>
 #include <AK/StringHash.h>
+#include <AK/Utf8View.h>
 #include <LibCrypto/BigInt/Algorithms/UnsignedBigIntegerAlgorithms.h>
 #include <math.h>
 
@@ -146,11 +148,11 @@ UnsignedBigInteger UnsignedBigInteger::from_base(u16 N, StringView str)
     return result;
 }
 
-DeprecatedString UnsignedBigInteger::to_base(u16 N) const
+ErrorOr<String> UnsignedBigInteger::to_base(u16 N) const
 {
     VERIFY(N <= 36);
     if (*this == UnsignedBigInteger { 0 })
-        return "0";
+        return String::small_string_from_utf8("0"sv);
 
     StringBuilder builder;
     UnsignedBigInteger temp(*this);
@@ -160,11 +162,11 @@ DeprecatedString UnsignedBigInteger::to_base(u16 N) const
     while (temp != UnsignedBigInteger { 0 }) {
         UnsignedBigIntegerAlgorithms::divide_u16_without_allocation(temp, N, quotient, remainder);
         VERIFY(remainder.words()[0] < N);
-        builder.append(to_ascii_base36_digit(remainder.words()[0]));
+        TRY(builder.try_append(to_ascii_base36_digit(remainder.words()[0])));
         temp.set_to(quotient);
     }
 
-    return builder.to_deprecated_string().reverse();
+    return TRY(builder.to_string()).reverse();
 }
 
 u64 UnsignedBigInteger::to_u64() const

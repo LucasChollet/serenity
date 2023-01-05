@@ -5,9 +5,9 @@
  */
 
 #include "BigFraction.h"
-#include <AK/DeprecatedString.h>
 #include <AK/Math.h>
 #include <AK/StringBuilder.h>
+#include <AK/Utf8View.h>
 #include <LibCrypto/NumberTheory/ModularFunctions.h>
 
 namespace Crypto {
@@ -184,11 +184,11 @@ void BigFraction::reduce()
     m_denominator = denominator_divide.quotient;
 }
 
-DeprecatedString BigFraction::to_deprecated_string(unsigned rounding_threshold) const
+ErrorOr<String> BigFraction::to_string(unsigned rounding_threshold) const
 {
     StringBuilder builder;
     if (m_numerator.is_negative() && m_numerator != "0"_bigint)
-        builder.append('-');
+        TRY(builder.try_append('-'));
 
     auto const number_of_digits = [](auto integer) {
         unsigned size = 1;
@@ -203,7 +203,7 @@ DeprecatedString BigFraction::to_deprecated_string(unsigned rounding_threshold) 
     auto const rounded_fraction = rounded(rounding_threshold);
 
     // We take the unsigned value as we already manage the '-'
-    auto const full_value = rounded_fraction.m_numerator.unsigned_value().to_base(10);
+    auto const full_value = TRY(rounded_fraction.m_numerator.unsigned_value().to_base(10)).bytes_as_string_view();
     int split = full_value.length() - (number_of_digits(rounded_fraction.m_denominator) - 1);
 
     if (split < 0)
@@ -217,29 +217,29 @@ DeprecatedString BigFraction::to_deprecated_string(unsigned rounding_threshold) 
         return { value.characters_without_null_termination(), n };
     };
 
-    auto const raw_fractional_value = full_value.substring(split, full_value.length() - split);
+    auto const raw_fractional_value = full_value.substring_view(split, full_value.length() - split);
 
     auto const integer_value = split == 0 ? "0"sv : full_value.substring_view(0, split);
     auto const fractional_value = rounding_threshold == 0 ? "0"sv : remove_trailing_zeros(raw_fractional_value);
 
-    builder.append(integer_value);
+    TRY(builder.try_append(integer_value));
 
     bool const has_decimal_part = fractional_value.length() > 0 && fractional_value != "0";
 
     if (has_decimal_part) {
-        builder.append('.');
+        TRY(builder.try_append('.'));
 
         auto number_pre_zeros = number_of_digits(rounded_fraction.m_denominator) - full_value.length() - 1;
         if (number_pre_zeros > rounding_threshold || fractional_value == "0")
             number_pre_zeros = 0;
 
-        builder.append_repeated('0', number_pre_zeros);
+        TRY(builder.try_append_repeated('0', number_pre_zeros));
 
         if (fractional_value != "0")
-            builder.append(fractional_value);
+            TRY(builder.try_append(fractional_value));
     }
 
-    return builder.to_deprecated_string();
+    return builder.to_string();
 }
 
 BigFraction BigFraction::sqrt() const

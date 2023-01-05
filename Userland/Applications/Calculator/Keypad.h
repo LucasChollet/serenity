@@ -33,7 +33,7 @@ public:
     void set_rounding_length(unsigned);
     unsigned rounding_length() const;
 
-    DeprecatedString to_deprecated_string() const;
+    ErrorOr<String> to_string() const;
 
     bool in_typing_state() const;
 

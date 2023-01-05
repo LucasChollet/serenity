@@ -149,7 +149,11 @@ void CalculatorWidget::mimic_pressed_button(RefPtr<GUI::Button> button)
 
 void CalculatorWidget::update_display()
 {
-    m_entry->set_text(m_keypad.to_deprecated_string());
+    auto const maybe_text = m_keypad.to_string();
+    if (maybe_text.is_error())
+        dbgln("{}", maybe_text.error());
+    auto const text = maybe_text.is_error() ? ""sv : maybe_text.value().bytes_as_string_view();
+    m_entry->set_text(text);
     if (m_calculator.has_error())
         m_label->set_text("E");
     else
