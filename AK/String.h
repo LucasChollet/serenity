@@ -64,6 +64,9 @@ public:
 
     ErrorOr<String> replace(StringView needle, StringView replacement, ReplaceMode replace_mode) const;
 
+    // This is codepoint-based reversing, it will mess up any grapheme
+    ErrorOr<String> reverse() const;
+
     [[nodiscard]] bool operator==(String const&) const;
     [[nodiscard]] bool operator!=(String const& other) const { return !(*this == other); }
 

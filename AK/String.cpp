@@ -9,6 +9,7 @@
 #include <AK/String.h>
 #include <AK/StringBuilder.h>
 #include <AK/Utf8View.h>
+#include <AK/Vector.h>
 #include <stdlib.h>
 
 namespace AK {
@@ -303,6 +304,25 @@ ErrorOr<void> Formatter<String>::format(FormatBuilder& builder, String const& ut
 ErrorOr<String> String::replace(StringView needle, StringView replacement, ReplaceMode replace_mode) const
 {
     return StringUtils::replace(*this, needle, replacement, replace_mode);
+}
+
+ErrorOr<String> String::reverse() const
+{
+    auto reversed_string = TRY(StringBuilder::create(bytes().size()));
+    Vector<u32> reversed_string_full_code_point;
+    TRY(reversed_string_full_code_point.try_resize(code_points().length()));
+
+    auto code_point_iterator = code_points().begin();
+    for (size_t i = code_points().length() - 1; i != 0; --i) {
+        reversed_string_full_code_point[i] = *code_point_iterator;
+        ++code_point_iterator;
+    }
+    reversed_string_full_code_point[0] = *code_point_iterator;
+
+    for (auto code_point : reversed_string_full_code_point)
+        reversed_string.append_code_point(code_point);
+
+    return reversed_string.to_string();
 }
 
 bool String::is_short_string() const
