@@ -75,7 +75,7 @@ private:
         if (on_error.has_value())
             m_on_error = on_error.release_value();
 
-        enqueue_work([this, origin_event_loop = &Core::EventLoop::current()] {
+        enqueue_work([this, origin_event_loop = Core::EventLoop::current().make_weak_ptr()] {
             auto result = m_action(*this);
             // The event loop cancels the promise when it exits.
             m_canceled |= m_promise->is_canceled();
@@ -84,7 +84,7 @@ private:
             if (!m_canceled && !result.is_error()) {
                 m_result = result.release_value();
                 // If there is no completion callback, we don't rely on the user keeping around the event loop.
-                if (m_on_complete) {
+                if (m_on_complete && origin_event_loop) {
                     callback_scheduled = true;
                     origin_event_loop->deferred_invoke([this] {
                         // Our promise's resolution function will never error.
@@ -100,7 +100,7 @@ private:
                     error = result.release_error();
 
                 m_promise->cancel(Error::from_errno(ECANCELED));
-                if (m_on_error) {
+                if (m_on_error && origin_event_loop) {
                     callback_scheduled = true;
                     origin_event_loop->deferred_invoke([this, error = move(error)]() mutable {
                         m_on_error(move(error));

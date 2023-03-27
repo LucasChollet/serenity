@@ -46,7 +46,7 @@ namespace Core {
 // Any event that the event loop needs to wait on or needs to repeatedly handle is stored in a handle, e.g. s_timers.
 //
 // EventLoop has one final responsibility: Handling the InspectorServer connection and processing requests to the Object hierarchy.
-class EventLoop {
+class EventLoop : public Weakable<EventLoop> {
     friend struct EventLoopPusher;
 
 public:
