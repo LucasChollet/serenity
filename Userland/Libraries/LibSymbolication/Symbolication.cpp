@@ -15,6 +15,7 @@
 #include <LibDebug/DebugInfo.h>
 #include <LibFileSystem/FileSystem.h>
 #include <LibSymbolication/Symbolication.h>
+#include <unistd.h>
 
 namespace Symbolication {
 
@@ -277,6 +278,48 @@ Vector<Symbol> symbolicate_thread(pid_t pid, pid_t tid, IncludeSourcePosition in
         symbols.append(result.value());
     }
     return symbols;
+}
+
+void dump_stacktrace()
+{
+    auto symbols = symbolicate_thread(getpid(), gettid());
+
+    StringBuilder builder;
+    builder.append("Stacktrace:\n"sv);
+
+    bool first_entry = true;
+    bool reached_needed_part = false;
+    for (auto const& symbol : symbols) {
+        bool const is_current_function = DeprecatedString { __PRETTY_FUNCTION__ }.contains(symbol.name);
+
+        if (is_current_function)
+            reached_needed_part = true;
+
+        if (!reached_needed_part || is_current_function)
+            continue;
+
+        if (first_entry)
+            first_entry = false;
+        else
+            builder.append('\n');
+
+        builder.appendff("{:p}: ", symbol.address);
+
+        builder.appendff("[{}] {}", symbol.object, symbol.name);
+        builder.append(" ("sv);
+
+        for (size_t i = 0; i < symbol.source_positions.size(); ++i) {
+            auto const& position = symbol.source_positions[i];
+            builder.appendff("\033[34;1m{}\033[0m:{}"sv, LexicalPath::basename(position.file_path), position.line_number);
+            if (i != symbol.source_positions.size() - 1) {
+                builder.append(" => "sv);
+            }
+        }
+
+        builder.append(')');
+    }
+
+    dbgln("{}", builder.string_view());
 }
 
 }

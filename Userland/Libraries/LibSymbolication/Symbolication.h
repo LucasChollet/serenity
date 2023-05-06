@@ -29,4 +29,6 @@ Optional<FlatPtr> kernel_base();
 Vector<Symbol> symbolicate_thread(pid_t pid, pid_t tid, IncludeSourcePosition = IncludeSourcePosition::Yes);
 Optional<Symbol> symbolicate(DeprecatedString const& path, FlatPtr address, IncludeSourcePosition = IncludeSourcePosition::Yes);
 
+void dump_stacktrace();
+
 }
