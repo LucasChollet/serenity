@@ -146,11 +146,14 @@ protected:
     u8 m_bit_count { 0 };
 };
 
+namespace Detail {
+
 /// A stream wrapper class that allows you to read arbitrary amounts of bits
 /// in little-endian order from another stream.
-class LittleEndianInputBitStream : public LittleEndianBitStream {
+template<RefillPolicy refill_policy>
+class LittleEndianInputBitStreamImpl : public LittleEndianBitStream {
 public:
-    explicit LittleEndianInputBitStream(MaybeOwned<Stream> stream)
+    explicit LittleEndianInputBitStreamImpl(MaybeOwned<Stream> stream)
         : LittleEndianBitStream(move(stream))
     {
     }
@@ -209,7 +212,7 @@ public:
     ErrorOr<T> peek_bits(size_t count)
     {
         if (count > m_bit_count)
-            TRY(refill_buffer_from_stream());
+            TRY(refill_buffer_from_stream(count));
 
         return m_bit_buffer & lsb_mask<T>(min(count, m_bit_count));
     }
@@ -239,20 +242,30 @@ public:
     }
 
 private:
-    ErrorOr<void> refill_buffer_from_stream()
+    ErrorOr<void> refill_buffer_from_stream(size_t minimum_count)
     {
-        size_t bits_to_read = bit_buffer_size - m_bit_count;
-        size_t bytes_to_read = bits_to_read / bits_per_byte;
+        while (minimum_count > m_bit_count) {
+            if (refill_policy == RefillPolicy::NoRefill && m_stream->is_eof())
+                return Error::from_errno(EOF);
 
-        BufferType buffer = 0;
-        auto bytes = TRY(m_stream->read_some({ &buffer, bytes_to_read }));
+            size_t bits_to_read = bit_buffer_size - m_bit_count;
+            size_t bytes_to_read = bits_to_read / bits_per_byte;
 
-        m_bit_buffer |= (buffer << m_bit_count);
-        m_bit_count += bytes.size() * bits_per_byte;
+            BufferType buffer = 0;
+            auto bytes = TRY(m_stream->read_some({ &buffer, bytes_to_read }));
+
+            m_bit_buffer |= (buffer << m_bit_count);
+            m_bit_count += bytes.size() * bits_per_byte;
+
+            if (refill_policy == RefillPolicy::FillWithZeroes)
+                break;
+        }
 
         return {};
     }
 };
+
+}
 
 /// A stream wrapper class that allows you to write arbitrary amounts of bits
 /// in big-endian order to another stream.

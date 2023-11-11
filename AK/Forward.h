@@ -15,6 +15,14 @@ namespace AK {
 namespace Detail {
 template<size_t inline_capacity>
 class ByteBuffer;
+
+enum class RefillPolicy {
+    NoRefill,
+    FillWithZeroes,
+};
+
+template<RefillPolicy>
+class LittleEndianInputBitStreamImpl;
 }
 
 class BigEndianInputBitStream;
@@ -36,7 +44,7 @@ class JsonArray;
 class JsonObject;
 class JsonValue;
 class LexicalPath;
-class LittleEndianInputBitStream;
+using LittleEndianInputBitStream = Detail::LittleEndianInputBitStreamImpl<Detail::RefillPolicy::FillWithZeroes>;
 class LittleEndianOutputBitStream;
 class SearchableCircularBuffer;
 class SeekableStream;
