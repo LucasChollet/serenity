@@ -21,39 +21,44 @@ static constexpr u8 deflate_special_code_length_copy = 16;
 static constexpr u8 deflate_special_code_length_zeros = 17;
 static constexpr u8 deflate_special_code_length_long_zeros = 18;
 
-CanonicalCode const& CanonicalCode::fixed_literal_codes()
+namespace Detail {
+
+template<OneOf<LittleEndianInputBitStream, InfiniteLittleEndianInputBitStream> InputBitStream>
+CanonicalCodeImpl<InputBitStream> const& CanonicalCodeImpl<InputBitStream>::fixed_literal_codes()
 {
-    static CanonicalCode code;
+    static CanonicalCodeImpl<InputBitStream> code;
     static bool initialized = false;
 
     if (initialized)
         return code;
 
-    code = MUST(CanonicalCode::from_bytes(fixed_literal_bit_lengths));
+    code = MUST(CanonicalCodeImpl<InputBitStream>::from_bytes(fixed_literal_bit_lengths));
     initialized = true;
 
     return code;
 }
 
-CanonicalCode const& CanonicalCode::fixed_distance_codes()
+template<OneOf<LittleEndianInputBitStream, InfiniteLittleEndianInputBitStream> InputBitStream>
+CanonicalCodeImpl<InputBitStream> const& CanonicalCodeImpl<InputBitStream>::fixed_distance_codes()
 {
-    static CanonicalCode code;
+    static CanonicalCodeImpl<InputBitStream> code;
     static bool initialized = false;
 
     if (initialized)
         return code;
 
-    code = MUST(CanonicalCode::from_bytes(fixed_distance_bit_lengths));
+    code = MUST(CanonicalCodeImpl<InputBitStream>::from_bytes(fixed_distance_bit_lengths));
     initialized = true;
 
     return code;
 }
 
-ErrorOr<CanonicalCode> CanonicalCode::from_bytes(ReadonlyBytes bytes)
+template<OneOf<LittleEndianInputBitStream, InfiniteLittleEndianInputBitStream> InputBitStream>
+ErrorOr<CanonicalCodeImpl<InputBitStream>> CanonicalCodeImpl<InputBitStream>::from_bytes(ReadonlyBytes bytes)
 {
     // FIXME: I can't quite follow the algorithm here, but it seems to work.
 
-    CanonicalCode code;
+    CanonicalCodeImpl<InputBitStream> code;
 
     auto non_zero_symbols = 0;
     auto last_non_zero = -1;
@@ -84,7 +89,7 @@ ErrorOr<CanonicalCode> CanonicalCode::from_bytes(ReadonlyBytes bytes)
         u16 symbol_value { 0 };
         u16 code_length { 0 };
     };
-    Array<PrefixCode, 1 << CanonicalCode::max_allowed_prefixed_code_length> prefix_codes;
+    Array<PrefixCode, 1 << CanonicalCodeImpl<InputBitStream>::max_allowed_prefixed_code_length> prefix_codes;
     size_t number_of_prefix_codes = 0;
 
     auto next_code = 0;
@@ -99,7 +104,7 @@ ErrorOr<CanonicalCode> CanonicalCode::from_bytes(ReadonlyBytes bytes)
             if (next_code > start_bit)
                 return Error::from_string_literal("Failed to decode code lengths");
 
-            if (code_length <= CanonicalCode::max_allowed_prefixed_code_length) {
+            if (code_length <= CanonicalCodeImpl<InputBitStream>::max_allowed_prefixed_code_length) {
                 if (number_of_prefix_codes >= prefix_codes.size())
                     return Error::from_string_literal("Invalid canonical Huffman code");
 
@@ -129,7 +134,7 @@ ErrorOr<CanonicalCode> CanonicalCode::from_bytes(ReadonlyBytes bytes)
         return Error::from_string_literal("Failed to decode code lengths");
 
     for (auto [symbol_code, symbol_value, code_length] : prefix_codes) {
-        if (code_length == 0 || code_length > CanonicalCode::max_allowed_prefixed_code_length)
+        if (code_length == 0 || code_length > CanonicalCodeImpl<InputBitStream>::max_allowed_prefixed_code_length)
             break;
 
         auto shift = code.m_max_prefixed_code_length - code_length;
@@ -144,16 +149,17 @@ ErrorOr<CanonicalCode> CanonicalCode::from_bytes(ReadonlyBytes bytes)
     return code;
 }
 
-ErrorOr<u32> CanonicalCode::read_symbol(LittleEndianInputBitStream& stream) const
+template<OneOf<LittleEndianInputBitStream, InfiniteLittleEndianInputBitStream> InputBitStream>
+ErrorOr<u32> CanonicalCodeImpl<InputBitStream>::read_symbol(InputBitStream& stream) const
 {
-    auto prefix = TRY(stream.peek_bits<size_t>(m_max_prefixed_code_length));
+    auto prefix = TRY(stream.template peek_bits<size_t>(m_max_prefixed_code_length));
 
     if (auto [symbol_value, code_length] = m_prefix_table[prefix]; code_length != 0) {
         stream.discard_previously_peeked_bits(code_length);
         return symbol_value;
     }
 
-    auto code_bits = TRY(stream.read_bits<u16>(m_max_prefixed_code_length));
+    auto code_bits = TRY(stream.template read_bits<u16>(m_max_prefixed_code_length));
     code_bits = fast_reverse16(code_bits, m_max_prefixed_code_length);
     code_bits |= 1 << m_max_prefixed_code_length;
 
@@ -168,12 +174,18 @@ ErrorOr<u32> CanonicalCode::read_symbol(LittleEndianInputBitStream& stream) cons
     return Error::from_string_literal("Symbol exceeds maximum symbol number");
 }
 
-ErrorOr<void> CanonicalCode::write_symbol(LittleEndianOutputBitStream& stream, u32 symbol) const
+template<OneOf<LittleEndianInputBitStream, InfiniteLittleEndianInputBitStream> InputBitStream>
+ErrorOr<void> CanonicalCodeImpl<InputBitStream>::write_symbol(LittleEndianOutputBitStream& stream, u32 symbol) const
 {
     auto code = symbol < m_bit_codes.size() ? m_bit_codes[symbol] : 0u;
     auto length = symbol < m_bit_code_lengths.size() ? m_bit_code_lengths[symbol] : 0u;
     TRY(stream.write_bits(code, length));
     return {};
+}
+
+template class CanonicalCodeImpl<LittleEndianInputBitStream>;
+template class CanonicalCodeImpl<InfiniteLittleEndianInputBitStream>;
+
 }
 
 DeflateDecompressor::CompressedBlock::CompressedBlock(DeflateDecompressor& decompressor, CanonicalCode literal_codes, Optional<CanonicalCode> distance_codes)
@@ -548,7 +560,7 @@ void DeflateCompressor::close()
 // Knuth's multiplicative hash on 4 bytes
 u16 DeflateCompressor::hash_sequence(u8 const* bytes)
 {
-    constexpr const u32 knuth_constant = 2654435761; // shares no common factors with 2^32
+    constexpr u32 const knuth_constant = 2654435761; // shares no common factors with 2^32
     return ((bytes[0] | bytes[1] << 8 | bytes[2] << 16 | bytes[3] << 24) * knuth_constant) >> (32 - hash_bits);
 }
 

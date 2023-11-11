@@ -18,16 +18,19 @@
 
 namespace Compress {
 
-class CanonicalCode {
+namespace Detail {
+
+template<OneOf<LittleEndianInputBitStream, InfiniteLittleEndianInputBitStream> InputBitStream>
+class CanonicalCodeImpl {
 public:
-    CanonicalCode() = default;
-    ErrorOr<u32> read_symbol(LittleEndianInputBitStream&) const;
+    CanonicalCodeImpl() = default;
+    ErrorOr<u32> read_symbol(InputBitStream&) const;
     ErrorOr<void> write_symbol(LittleEndianOutputBitStream&, u32) const;
 
-    static CanonicalCode const& fixed_literal_codes();
-    static CanonicalCode const& fixed_distance_codes();
+    static CanonicalCodeImpl const& fixed_literal_codes();
+    static CanonicalCodeImpl const& fixed_distance_codes();
 
-    static ErrorOr<CanonicalCode> from_bytes(ReadonlyBytes);
+    static ErrorOr<CanonicalCodeImpl> from_bytes(ReadonlyBytes);
 
 private:
     static constexpr size_t max_allowed_prefixed_code_length = 8;
@@ -50,6 +53,10 @@ private:
     Vector<u16, 288> m_bit_codes {};
     Vector<u16, 288> m_bit_code_lengths {};
 };
+
+}
+
+using CanonicalCode = Detail::CanonicalCodeImpl<LittleEndianInputBitStream>;
 
 class DeflateDecompressor final : public Stream {
 private:

@@ -26,7 +26,7 @@ ErrorOr<VP8LHeader> decode_webp_chunk_VP8L_header(ReadonlyBytes vp8l_data)
         return Error::from_string_literal("WebPImageDecoderPlugin: VP8L chunk too small");
 
     FixedMemoryStream memory_stream { vp8l_data.trim(5) };
-    LittleEndianInputBitStream bit_stream { MaybeOwned<Stream>(memory_stream) };
+    InfiniteLittleEndianInputBitStream bit_stream { MaybeOwned<Stream>(memory_stream) };
 
     u8 signature = TRY(bit_stream.read_bits(8));
     if (signature != 0x2f)
@@ -63,7 +63,7 @@ public:
     }
 
     static ErrorOr<CanonicalCode> from_bytes(ReadonlyBytes);
-    ErrorOr<u32> read_symbol(LittleEndianInputBitStream&) const;
+    ErrorOr<u32> read_symbol(InfiniteLittleEndianInputBitStream&) const;
 
 private:
     explicit CanonicalCode(u32 single_symbol)
@@ -71,12 +71,12 @@ private:
     {
     }
 
-    explicit CanonicalCode(Compress::CanonicalCode code)
+    explicit CanonicalCode(Compress::Detail::CanonicalCodeImpl<InfiniteLittleEndianInputBitStream> code)
         : m_code(move(code))
     {
     }
 
-    Variant<u32, Compress::CanonicalCode> m_code;
+    Variant<u32, Compress::Detail::CanonicalCodeImpl<InfiniteLittleEndianInputBitStream>> m_code;
 };
 
 ErrorOr<CanonicalCode> CanonicalCode::from_bytes(ReadonlyBytes bytes)
@@ -93,14 +93,14 @@ ErrorOr<CanonicalCode> CanonicalCode::from_bytes(ReadonlyBytes bytes)
     if (non_zero_symbols == 1)
         return CanonicalCode(last_non_zero);
 
-    return CanonicalCode(TRY(Compress::CanonicalCode::from_bytes(bytes)));
+    return CanonicalCode(TRY(Compress::Detail::CanonicalCodeImpl<InfiniteLittleEndianInputBitStream>::from_bytes(bytes)));
 }
 
-ErrorOr<u32> CanonicalCode::read_symbol(LittleEndianInputBitStream& bit_stream) const
+ErrorOr<u32> CanonicalCode::read_symbol(InfiniteLittleEndianInputBitStream& bit_stream) const
 {
     return TRY(m_code.visit(
         [](u32 single_code) -> ErrorOr<u32> { return single_code; },
-        [&bit_stream](Compress::CanonicalCode const& code) { return code.read_symbol(bit_stream); }));
+        [&bit_stream](Compress::Detail::CanonicalCodeImpl<InfiniteLittleEndianInputBitStream> const& code) { return code.read_symbol(bit_stream); }));
 }
 
 // https://developers.google.com/speed/webp/docs/webp_lossless_bitstream_specification#61_overview
@@ -121,7 +121,7 @@ private:
 }
 
 // https://developers.google.com/speed/webp/docs/webp_lossless_bitstream_specification#621_decoding_and_building_the_prefix_codes
-static ErrorOr<CanonicalCode> decode_webp_chunk_VP8L_prefix_code(LittleEndianInputBitStream& bit_stream, size_t alphabet_size)
+static ErrorOr<CanonicalCode> decode_webp_chunk_VP8L_prefix_code(InfiniteLittleEndianInputBitStream& bit_stream, size_t alphabet_size)
 {
     // prefix-code           =  simple-prefix-code / normal-prefix-code
     bool is_simple_code_length_code = TRY(bit_stream.read_bits(1));
@@ -234,7 +234,7 @@ static ErrorOr<CanonicalCode> decode_webp_chunk_VP8L_prefix_code(LittleEndianInp
 // https://developers.google.com/speed/webp/docs/webp_lossless_bitstream_specification#622_decoding_of_meta_prefix_codes
 // The description of prefix code groups is in "Decoding of Meta Prefix Codes", even though prefix code groups are used
 // in regular images without meta prefix code as well ¯\_(ツ)_/¯.
-static ErrorOr<PrefixCodeGroup> decode_webp_chunk_VP8L_prefix_code_group(u16 color_cache_size, LittleEndianInputBitStream& bit_stream)
+static ErrorOr<PrefixCodeGroup> decode_webp_chunk_VP8L_prefix_code_group(u16 color_cache_size, InfiniteLittleEndianInputBitStream& bit_stream)
 {
     // prefix-code-group     =
     //     5prefix-code ; See "Interpretation of Meta Prefix Codes" to
@@ -258,7 +258,7 @@ enum class ImageKind {
     EntropyCoded,
 };
 
-static ErrorOr<NonnullRefPtr<Bitmap>> decode_webp_chunk_VP8L_image(ImageKind image_kind, BitmapFormat format, IntSize const& size, LittleEndianInputBitStream& bit_stream)
+static ErrorOr<NonnullRefPtr<Bitmap>> decode_webp_chunk_VP8L_image(ImageKind image_kind, BitmapFormat format, IntSize const& size, InfiniteLittleEndianInputBitStream& bit_stream)
 {
     // https://developers.google.com/speed/webp/docs/webp_lossless_bitstream_specification#623_decoding_entropy-coded_image_data
     // https://developers.google.com/speed/webp/docs/webp_lossless_bitstream_specification#523_color_cache_coding
@@ -504,7 +504,7 @@ Transform::~Transform() = default;
 // https://developers.google.com/speed/webp/docs/webp_lossless_bitstream_specification#41_predictor_transform
 class PredictorTransform : public Transform {
 public:
-    static ErrorOr<NonnullOwnPtr<PredictorTransform>> read(LittleEndianInputBitStream&, IntSize const& image_size);
+    static ErrorOr<NonnullOwnPtr<PredictorTransform>> read(InfiniteLittleEndianInputBitStream&, IntSize const& image_size);
     virtual ErrorOr<NonnullRefPtr<Bitmap>> transform(NonnullRefPtr<Bitmap>) override;
 
 private:
@@ -588,7 +588,7 @@ private:
     NonnullRefPtr<Bitmap> m_predictor_bitmap;
 };
 
-ErrorOr<NonnullOwnPtr<PredictorTransform>> PredictorTransform::read(LittleEndianInputBitStream& bit_stream, IntSize const& image_size)
+ErrorOr<NonnullOwnPtr<PredictorTransform>> PredictorTransform::read(InfiniteLittleEndianInputBitStream& bit_stream, IntSize const& image_size)
 {
     // predictor-image      =  3BIT ; sub-pixel code
     //                         entropy-coded-image
@@ -727,7 +727,7 @@ ErrorOr<ARGB32> PredictorTransform::predict(u8 predictor, ARGB32 TL, ARGB32 T, A
 // https://developers.google.com/speed/webp/docs/webp_lossless_bitstream_specification#42_color_transform
 class ColorTransform : public Transform {
 public:
-    static ErrorOr<NonnullOwnPtr<ColorTransform>> read(LittleEndianInputBitStream&, IntSize const& image_size);
+    static ErrorOr<NonnullOwnPtr<ColorTransform>> read(InfiniteLittleEndianInputBitStream&, IntSize const& image_size);
     virtual ErrorOr<NonnullRefPtr<Bitmap>> transform(NonnullRefPtr<Bitmap>) override;
 
 private:
@@ -748,7 +748,7 @@ private:
     NonnullRefPtr<Bitmap> m_color_bitmap;
 };
 
-ErrorOr<NonnullOwnPtr<ColorTransform>> ColorTransform::read(LittleEndianInputBitStream& bit_stream, IntSize const& image_size)
+ErrorOr<NonnullOwnPtr<ColorTransform>> ColorTransform::read(InfiniteLittleEndianInputBitStream& bit_stream, IntSize const& image_size)
 {
     // color-image          =  3BIT ; sub-pixel code
     //                         entropy-coded-image
@@ -827,7 +827,7 @@ ErrorOr<NonnullRefPtr<Bitmap>> SubtractGreenTransform::transform(NonnullRefPtr<B
 // https://developers.google.com/speed/webp/docs/webp_lossless_bitstream_specification#44_color_indexing_transform
 class ColorIndexingTransform : public Transform {
 public:
-    static ErrorOr<NonnullOwnPtr<ColorIndexingTransform>> read(LittleEndianInputBitStream&, int original_width);
+    static ErrorOr<NonnullOwnPtr<ColorIndexingTransform>> read(InfiniteLittleEndianInputBitStream&, int original_width);
     virtual ErrorOr<NonnullRefPtr<Bitmap>> transform(NonnullRefPtr<Bitmap>) override;
 
     // For a color indexing transform, the green channel of the source image is used as the index into a palette to produce an output color.
@@ -858,7 +858,7 @@ private:
     NonnullRefPtr<Bitmap> m_palette_bitmap;
 };
 
-ErrorOr<NonnullOwnPtr<ColorIndexingTransform>> ColorIndexingTransform::read(LittleEndianInputBitStream& bit_stream, int original_width)
+ErrorOr<NonnullOwnPtr<ColorIndexingTransform>> ColorIndexingTransform::read(InfiniteLittleEndianInputBitStream& bit_stream, int original_width)
 {
     // color-indexing-image =  8BIT ; color count
     //                         entropy-coded-image
@@ -931,7 +931,7 @@ ErrorOr<NonnullRefPtr<Bitmap>> ColorIndexingTransform::transform(NonnullRefPtr<B
 ErrorOr<NonnullRefPtr<Bitmap>> decode_webp_chunk_VP8L_contents(VP8LHeader const& vp8l_header)
 {
     FixedMemoryStream memory_stream { vp8l_header.lossless_data };
-    LittleEndianInputBitStream bit_stream { MaybeOwned<Stream>(memory_stream) };
+    InfiniteLittleEndianInputBitStream bit_stream { MaybeOwned<Stream>(memory_stream) };
 
     // image-stream = optional-transform spatially-coded-image
 
