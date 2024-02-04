@@ -465,15 +465,14 @@ def generate_tag_handler(tag: Tag) -> str:
         not_in_value_list = f"({' && '.join([f'v != {v.value}' for v in tag.associated_enum])})"
         check_value = fR"""
         for (u32 i = 0; i < value.size(); ++i) {{
-            TRY(value[i].visit(
-                []({tiff_type_to_cpp(tag.types[0])} const& v) -> ErrorOr<void> {{
-                    if ({not_in_value_list})
-                        return Error::from_string_literal("TIFFImageDecoderPlugin: Invalid value for tag {tag.name}");
-                    return {{}};
+            value[i].visit(
+                [&]({tiff_type_to_cpp(tag.types[0])} const& v) {{
+                    if ({not_in_value_list} && TIFF_DEBUG)
+                        dbgln("TIFFImageDecoderPlugin: Invalid value for tag {tag.name}: {{}}", value[i]);
                 }},
-                [&](auto const&) -> ErrorOr<void> {{
+                [&](auto const&) {{
                     VERIFY_NOT_REACHED();
-                }})
+                }}
             );
         }}
 """

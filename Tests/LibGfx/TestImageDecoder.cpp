@@ -6,6 +6,7 @@
  */
 
 #include <AK/ByteString.h>
+#include <AK/TypeCasts.h>
 #include <LibCore/MappedFile.h>
 #include <LibGfx/ImageFormats/BMPLoader.h>
 #include <LibGfx/ImageFormats/DDSLoader.h>
@@ -22,6 +23,7 @@
 #include <LibGfx/ImageFormats/PPMLoader.h>
 #include <LibGfx/ImageFormats/TGALoader.h>
 #include <LibGfx/ImageFormats/TIFFLoader.h>
+#include <LibGfx/ImageFormats/TIFFMetadata.h>
 #include <LibGfx/ImageFormats/TinyVGLoader.h>
 #include <LibGfx/ImageFormats/WebPLoader.h>
 #include <LibTest/TestCase.h>
@@ -772,6 +774,19 @@ TEST_CASE(test_tiff_invalid_tag)
 
     EXPECT_EQ(frame.image->get_pixel(0, 0), Gfx::Color::NamedColor::Black);
     EXPECT_EQ(frame.image->get_pixel(0, 9), Gfx::Color::NamedColor::White);
+}
+
+TEST_CASE(test_tiff_invalid_value_enum)
+{
+    auto file = TRY_OR_FAIL(Core::MappedFile::map(TEST_INPUT("tiff/invalid_value_enum.tiff"sv)));
+    EXPECT(Gfx::TIFFImageDecoderPlugin::sniff(file->bytes()));
+    auto plugin_decoder = TRY_OR_FAIL(Gfx::TIFFImageDecoderPlugin::create(file->bytes()));
+
+    EXPECT(plugin_decoder->metadata().has_value());
+    EXPECT(is<Gfx::ExifMetadata>(plugin_decoder->metadata().value()));
+    auto const& exif = dynamic_cast<Gfx::ExifMetadata const&>(plugin_decoder->metadata().value());
+    EXPECT(exif.compression().has_value());
+    EXPECT_EQ(to_underlying(exif.compression().value()), 30000);
 }
 
 TEST_CASE(test_webp_simple_lossy)

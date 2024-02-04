@@ -577,6 +577,9 @@ private:
     ErrorOr<void> read_tag()
     {
         auto const tag = TRY(read_value<u16>());
+        if (tag == 259)
+            [[maybe_unused]]
+            auto stop = true;
         auto const raw_type = TRY(read_value<u16>());
         auto const type = TRY(tiff_type_from_u16(raw_type));
         auto const count = TRY(read_value<u32>());
