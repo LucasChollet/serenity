@@ -74,12 +74,17 @@ private:
 
     IntPoint oriented_position(IntPoint point)
     {
-        auto const flip_horizontally = [this](IntPoint point) {
-            return IntPoint(m_width - point.x() - 1, point.y());
+        enum class AlreadyFlipped : u8 {
+            Yes,
+            No,
         };
 
-        auto const rotate_90_clockwise = [this](IntPoint point) {
-            return IntPoint(m_height - point.y() - 1, point.x());
+        auto const flip_horizontally = [this](IntPoint point, AlreadyFlipped flipped = AlreadyFlipped::No) {
+            return IntPoint((flipped == AlreadyFlipped::No ? m_width : m_height) - point.x() - 1, point.y());
+        };
+
+        auto const rotate_90_clockwise = [this](IntPoint point, AlreadyFlipped flipped = AlreadyFlipped::No) {
+            return IntPoint((flipped == AlreadyFlipped::No ? m_height : m_width) - point.y() - 1, point.x());
         };
 
         switch (m_orientation) {
@@ -92,11 +97,11 @@ private:
         case Orientation::FlipVertically:
             return IntPoint(point.x(), m_height - point.y() - 1);
         case Orientation::Rotate90ClockwiseThenFlipHorizontally:
-            return flip_horizontally(rotate_90_clockwise(point));
+            return flip_horizontally(rotate_90_clockwise(point), AlreadyFlipped::Yes);
         case Orientation::Rotate90Clockwise:
             return rotate_90_clockwise(point);
         case Orientation::FlipHorizontallyThenRotate90Clockwise:
-            return rotate_90_clockwise(flip_horizontally(point));
+            return rotate_90_clockwise(flip_horizontally(point), AlreadyFlipped::Yes);
         case Orientation::Rotate90CounterClockwise:
             return IntPoint(point.y(), m_width - point.x() - 1);
         }
