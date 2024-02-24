@@ -8,6 +8,7 @@
 
 #include <AK/ByteBuffer.h>
 #include <AK/Concepts.h>
+#include <AK/Endian.h>
 #include <AK/MaybeOwned.h>
 #include <AK/NumericLimits.h>
 #include <AK/OwnPtr.h>
@@ -27,16 +28,17 @@ public:
     // ^Stream
     virtual ErrorOr<Bytes> read_some(Bytes bytes) override
     {
-        if (m_current_byte.has_value() && is_aligned_to_byte_boundary()) {
-            bytes[0] = m_current_byte.release_value();
-            auto freshly_read_bytes = TRY(m_stream->read_some(bytes.slice(1)));
-            return bytes.trim(1 + freshly_read_bytes.size());
-        }
         align_to_byte_boundary();
-        return m_stream->read_some(bytes);
+        size_t bytes_from_buffer = 0;
+        for (u8 i = 0; i < (m_bit_count % 8) && bytes.size() > bytes_from_buffer; ++i) {
+            bytes[i] = MUST(read_bits<u8>(8));
+            bytes_from_buffer = i + 1;
+        }
+        auto freshly_read_bytes = TRY(m_stream->read_some(bytes.slice(bytes_from_buffer)));
+        return bytes.trim(bytes_from_buffer + freshly_read_bytes.size());
     }
     virtual ErrorOr<size_t> write_some(ReadonlyBytes bytes) override { return m_stream->write_some(bytes); }
-    virtual bool is_eof() const override { return m_stream->is_eof() && !m_current_byte.has_value(); }
+    virtual bool is_eof() const override { return m_stream->is_eof() && m_bit_count == 0; }
     virtual bool is_open() const override { return m_stream->is_open(); }
     virtual void close() override
     {
@@ -50,8 +52,6 @@ public:
     }
 
     /// Depending on the number of bits to read, the return type can be chosen appropriately.
-    /// This avoids a bunch of static_cast<>'s for the user.
-    // TODO: Support u128, u256 etc. as well: The concepts would be quite complex.
     template<Unsigned T = u64>
     ErrorOr<T> read_bits(size_t count)
     {
@@ -62,39 +62,19 @@ public:
 
         size_t nread = 0;
         while (nread < count) {
-            if (m_current_byte.has_value()) {
-                if constexpr (!IsSame<bool, T> && !IsSame<u8, T>) {
-                    // read as many bytes as possible directly
-                    if (((count - nread) >= 8) && is_aligned_to_byte_boundary()) {
-                        // shift existing data over
-                        result <<= 8;
-                        result |= m_current_byte.value();
-                        nread += 8;
-                        m_current_byte.clear();
-                    } else {
-                        auto const bit = (m_current_byte.value() >> (7 - m_bit_offset)) & 1;
-                        result <<= 1;
-                        result |= bit;
-                        ++nread;
-                        if (m_bit_offset++ == 7)
-                            m_current_byte.clear();
-                    }
-                } else {
-                    // Always take this branch for booleans or u8: there's no purpose in reading more than a single bit
-                    auto const bit = (m_current_byte.value() >> (7 - m_bit_offset)) & 1;
-                    if constexpr (IsSame<bool, T>)
-                        result = bit;
-                    else {
-                        result <<= 1;
-                        result |= bit;
-                    }
-                    ++nread;
-                    if (m_bit_offset++ == 7)
-                        m_current_byte.clear();
-                }
+            if (m_bit_count != 0) {
+                auto const to_read = min(m_bit_count, count - nread);
+                auto const mask = NumericLimits<BufferType>::max() >> (buffer_size_in_bits - to_read);
+                result |= (m_bit_buffer >> (m_bit_count - to_read) & mask) << (count - to_read - nread);
+                m_bit_count -= to_read;
+                nread += to_read;
+            } else if (m_stream->is_eof()) {
+                return Error::from_string_literal("Reached end-of-stream without collecting the required number of bits");
             } else {
-                m_current_byte = TRY(m_stream->read_value<u8>());
-                m_bit_offset = 0;
+                auto const read = TRY(m_stream->read_some({ &m_bit_buffer, sizeof(BufferType) }));
+                m_bit_buffer = convert_between_host_and_big_endian(m_bit_buffer);
+                m_bit_buffer >>= (sizeof(BufferType) - read.size()) * 8;
+                m_bit_count = read.size() * 8;
             }
         }
 
@@ -105,17 +85,19 @@ public:
     /// Non-bitwise reads will implicitly call this.
     void align_to_byte_boundary()
     {
-        m_current_byte.clear();
-        m_bit_offset = 0;
+        m_bit_count -= bits_until_next_byte_boundary();
     }
 
     /// Whether we are (accidentally or intentionally) at a byte boundary right now.
-    ALWAYS_INLINE bool is_aligned_to_byte_boundary() const { return m_bit_offset % 8 == 0; }
-    ALWAYS_INLINE u8 bits_until_next_byte_boundary() const { return m_bit_offset % 8 == 0 ? 0 : 8 - m_bit_offset; }
+    ALWAYS_INLINE bool is_aligned_to_byte_boundary() const { return m_bit_count % 8 == 0; }
+    ALWAYS_INLINE u8 bits_until_next_byte_boundary() const { return m_bit_count % 8 == 0 ? 0 : m_bit_count % 8; }
 
 private:
-    Optional<u8> m_current_byte;
-    size_t m_bit_offset { 0 };
+    using BufferType = u64;
+    static constexpr size_t buffer_size_in_bits = sizeof(BufferType) * 8;
+
+    BufferType m_bit_buffer { 0 };
+    u8 m_bit_count { 0 };
     MaybeOwned<Stream> m_stream;
 };
 

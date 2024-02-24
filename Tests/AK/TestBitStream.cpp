@@ -199,6 +199,22 @@ TEST_CASE(bit_reads_beyond_stream_limits)
     }
 }
 
+TEST_CASE(read_beyond_internal_buffer_size)
+{
+    auto memory_stream = make<AllocatingMemoryStream>();
+
+    BigEndianOutputBitStream bit_write_stream { MaybeOwned<Stream>(*memory_stream) };
+    BigEndianInputBitStream bit_read_stream { MaybeOwned<Stream>(*memory_stream) };
+
+    for (u8 i = 0; i < 4; ++i)
+        TRY_OR_FAIL(bit_write_stream.write_bits(0xbeefcafe, 32));
+
+    EXPECT_EQ(0xbeefu, TRY_OR_FAIL(bit_read_stream.read_bits(16)));
+    for (u8 i = 0; i < 3; ++i)
+        EXPECT_EQ(0xcafebeefu, TRY_OR_FAIL(bit_read_stream.read_bits(32)));
+    EXPECT_EQ(0xcafeu, TRY_OR_FAIL(bit_read_stream.read_bits(16)));
+}
+
 RANDOMIZED_TEST_CASE(roundtrip_u8_little_endian)
 {
     GEN(n, Gen::number_u64(NumericLimits<u8>::max()));
