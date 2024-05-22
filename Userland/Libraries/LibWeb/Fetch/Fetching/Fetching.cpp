@@ -1536,8 +1536,63 @@ WebIDL::ExceptionOr<JS::NonnullGCPtr<PendingResponse>> http_network_or_cache_fet
 
             // 2. If storedResponse is non-null, then:
             if (stored_response) {
-                // FIXME: Caching is not implemented yet.
-                VERIFY_NOT_REACHED();
+                // 1. If cache mode is "default", storedResponse is a stale-while-revalidate response,
+                //    and httpRequest’s client is non-null, then:
+                if (http_request->cache_mode() == Infrastructure::Request::CacheMode::Default
+                    && stored_response->is_stale_while_revalidate()
+                    && http_request->client() != nullptr) {
+
+                    // 1. Set response to storedResponse.
+                    response = stored_response;
+
+                    // 2. Set response’s cache state to "local".
+                    response->set_cache_state(Infrastructure::Response::CacheState::Local);
+
+                    // 3. Let revalidateRequest be a clone of request.
+                    auto revalidate_request = request->clone(realm);
+
+                    // 4. Set revalidateRequest’s cache mode set to "no-cache".
+                    revalidate_request->set_cache_mode(Infrastructure::Request::CacheMode::NoCache);
+
+                    // 5. Set revalidateRequest’s prevent no-cache cache-control header modification flag.
+                    revalidate_request->set_prevent_no_cache_cache_control_header_modification(true);
+
+                    // 6. Set revalidateRequest’s service-workers mode set to "none".
+                    revalidate_request->set_service_workers_mode(Infrastructure::Request::ServiceWorkersMode::None);
+
+                    // 7. In parallel, run main fetch given a new fetch params whose request is revalidateRequest.
+                    // FIXME: I'm pretty sure taking everything by reference isn't a good idea :^)
+                    Platform::EventLoopPlugin::the().deferred_invoke([&] {
+                        (void)main_fetch(realm, Infrastructure::FetchParams::create(vm, revalidate_request, fetch_params.timing_info()));
+                    });
+                }
+                // 2. Otherwise:
+                else {
+                    // 1. If storedResponse is a stale response, then set the revalidatingFlag.
+                    if (stored_response->is_stale())
+                        revalidating_flag->set_value(true);
+
+                    // 2. If the revalidatingFlag is set and httpRequest’s cache mode is neither "force-cache" nor "only-if-cached", then:
+                    if (revalidating_flag->value()
+                        && http_request->cache_mode() != Infrastructure::Request::CacheMode::ForceCache
+                        && http_request->cache_mode() != Infrastructure::Request::CacheMode::OnlyIfCached) {
+
+                        // 1. If storedResponse’s header list contains `ETag`, then append (`If-None-Match`, `ETag`'s value) to httpRequest’s header list.
+                        if (stored_response->header_list()->contains("ETag"sv.bytes())) {
+                            stored_response->header_list()->append(Infrastructure::Header::from_string_pair("If-None-Match"sv, stored_response->header_list()->get("ETag"sv.bytes()).value()));
+                        }
+
+                        // 2. If storedResponse’s header list contains `Last-Modified`, then append (`If-Modified-Since`, `Last-Modified`'s value) to httpRequest’s header list.
+                        if (stored_response->header_list()->contains("Last-Modified"sv.bytes())) {
+                            stored_response->header_list()->append(Infrastructure::Header::from_string_pair("If-Modified-Since"sv, stored_response->header_list()->get("Last-Modified"sv.bytes()).value()));
+                        }
+                    }
+                    // 3. Otherwise, set response to storedResponse and set response’s cache state to "local".
+                    else {
+                        response = stored_response;
+                        response->set_cache_state(Infrastructure::Response::CacheState::Local);
+                    }
+                }
             }
         }
     }
