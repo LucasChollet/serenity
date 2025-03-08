@@ -1716,6 +1716,21 @@ struct Patch {
 
     // x[] and y[] in the spec
     FixedArray<IntPoint> positions;
+
+    struct BlendingInfo {
+        static ErrorOr<BlendingInfo> create(u8 number)
+        {
+            auto mode = TRY(FixedArray<u8>::create(number));
+            auto alpha_channel = TRY(FixedArray<u8>::create(number));
+            auto clamp = TRY(FixedArray<u16>::create(number));
+            return BlendingInfo { move(mode), move(alpha_channel), move(clamp) };
+        }
+        FixedArray<u8> mode {};
+        FixedArray<u8> alpha_channel {};
+        FixedArray<u16> clamp {};
+    };
+
+    FixedArray<BlendingInfo> blending;
 };
 
 static ErrorOr<Patch> read_patch(LittleEndianInputBitStream& stream, EntropyDecoder& decoder, u32 num_extra_channels)
@@ -1729,6 +1744,7 @@ static ErrorOr<Patch> read_patch(LittleEndianInputBitStream& stream, EntropyDeco
     patch.count = TRY(decoder.decode_hybrid_uint(stream, 7)) + 1;
 
     patch.positions = TRY(FixedArray<IntPoint>::create(patch.count));
+    patch.blending = TRY(FixedArray<Patch::BlendingInfo>::create(patch.count));
 
     for (u32 j = 0; j < patch.count; j++) {
         if (j == 0) {
@@ -1749,8 +1765,17 @@ static ErrorOr<Patch> read_patch(LittleEndianInputBitStream& stream, EntropyDeco
         /* the width x height rectangle with top-left coordinates (x, y)
            is fully contained within the frame */
 
-        if (num_extra_channels > 0)
-            return Error::from_string_literal("JPEGXLLoader: Implement reading patches for extra channels");
+        auto blending_info_number = num_extra_channels + 1;
+        patch.blending[j] = TRY(Patch::BlendingInfo::create(blending_info_number));
+
+        for (u32 k = 0; k < blending_info_number; ++k) {
+            u32 mode = TRY(decoder.decode_hybrid_uint(stream, 5));
+            if (mode > 8)
+                return Error::from_string_literal("JPEGXLLoader: Invalid mode for blending in patches");
+            patch.blending[j].mode[k] = mode;
+            if (mode > 2)
+                return Error::from_string_literal("JPEGXLLoader: Implement reading more complex modes for blending in patches");
+        }
     }
 
     return patch;
