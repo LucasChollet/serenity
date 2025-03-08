@@ -1691,6 +1691,9 @@ static ErrorOr<GlobalModular> read_global_modular(LittleEndianInputBitStream& st
     auto channels = TRY(FixedArray<IntSize>::create(num_channels));
     channels.fill_with(frame_size);
 
+    if (channels.is_empty())
+        return global_modular;
+
     global_modular.modular_data = TRY(read_modular_bitstream(stream,
         { .channels_info = channels,
             .decoder = global_modular.decoder,
