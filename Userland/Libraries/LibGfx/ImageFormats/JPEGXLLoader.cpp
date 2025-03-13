@@ -1932,13 +1932,71 @@ static ErrorOr<LfGlobal> read_lf_global(LittleEndianInputBitStream& stream,
 ///
 
 /// G.2 - LfGroup
-static ErrorOr<void> read_lf_group(LittleEndianInputBitStream&,
+struct LfCoefficients {
+    static ErrorOr<LfCoefficients> create(u8 extra_precision, u32 width, u32 height)
+    {
+        auto channel = TRY(Channel::create(width, height));
+        return LfCoefficients { extra_precision, { channel, channel, channel } };
+    }
+
+    u8 extra_precision {};
+    Array<Channel, 3> lf_quant {};
+};
+
+struct HFMetadata {
+    static ErrorOr<HFMetadata> create(u32 nb_blocks, u32 width, u32 height)
+    {
+        auto x_from_y = TRY(Channel::create(ceil(width / 64.), ceil(height / 64.)));
+        auto b_from_y = TRY(Channel::create(ceil(width / 64.), ceil(height / 64.)));
+        auto block_info = TRY(Channel::create(nb_blocks, 2));
+        auto sharpness = TRY(Channel::create(ceil(width / 8.), ceil(height / 8.)));
+        return HFMetadata { { x_from_y, b_from_y, block_info, sharpness } };
+    }
+
+    Array<Channel, 4> channels;
+};
+
+struct LfGroup {
+    LfCoefficients lf_coeff {};
+    HFMetadata hf_meta {};
+};
+
+static ErrorOr<LfGroup> read_lf_group(LittleEndianInputBitStream& stream,
     Image& image,
-    FrameHeader const& frame_header)
+    FrameHeader const& frame_header,
+    ImageMetadata const& metadata,
+    LfGlobal& lf_global)
 {
+    LfGroup group;
+
+    // FIXME: For some reason, LF Group size seams to be 8 times bigger than the usual group_dim.
+    //        Find a proper spec quote for that!
+    auto group_dim = 8 * frame_header.group_dim();
+
     // LF coefficients
-    if (frame_header.encoding == Encoding::kVarDCT) {
-        TODO();
+    if (frame_header.encoding == Encoding::kVarDCT
+        && !(frame_header.flags & FrameHeader::Flags::kUseLfFrame)) {
+
+        // The decoder first reads extra_precision as a u(2).
+        auto extra_precision = TRY(stream.read_bits(2));
+
+        auto rows = static_cast<u32>(ceil(group_dim / 8));
+        auto columns = static_cast<u32>(ceil(group_dim / 8));
+
+        group.lf_coeff = TRY(LfCoefficients::create(extra_precision, rows, columns));
+
+        // Next, the decoder reads a Modular sub-bitstream as described in Annex H,
+        // to obtain the quantized LF coefficients LfQuant, which consists of three
+        // channels with ceil(height / 8) rows and ceil(width / 8) columns,
+        // where the number of rows and columns is optionally right-shifted by one
+        // according to frame_header.jpeg_upsampling.
+
+        if (any_of(frame_header.jpeg_upsampling, [](auto v) { return v > 0; }))
+            return Error::from_string_literal("JPEGXLLoader: Handle non-null value for jpeg_upsampling");
+
+        dbgln("LfCoefficients: {} - {}x{}", extra_precision, rows, columns);
+
+        TRY(read_modular_header(stream, group.lf_coeff.lf_quant, metadata, lf_global.global_decoder, lf_global.gmodular.ma_tree));
     }
 
     // ModularLfGroup
@@ -1957,10 +2015,16 @@ static ErrorOr<void> read_lf_group(LittleEndianInputBitStream&,
 
     // HF metadata
     if (frame_header.encoding == Encoding::kVarDCT) {
-        TODO();
+        auto nb_blocks = 1 + TRY(stream.read_bits(ceil(log2(ceil(group_dim / 8) * ceil(group_dim / 8)))));
+        group.hf_meta = TRY(HFMetadata::create(nb_blocks, group_dim, group_dim));
+        dbgln("HFMetadata: {} - {}x{} - {}x{} - {}x{}", nb_blocks,
+            ceil(group_dim / 64.), ceil(group_dim / 64.),
+            nb_blocks, 2,
+            ceil(group_dim / 8.), ceil(group_dim / 8.));
+        TRY(read_modular_header(stream, group.hf_meta.channels, metadata, lf_global.global_decoder, lf_global.gmodular.ma_tree));
     }
 
-    return {};
+    return group;
 }
 ///
 
@@ -2318,7 +2382,7 @@ static ErrorOr<Frame> read_frame(LittleEndianInputBitStream& stream,
 
         for (u32 i {}; i < frame.num_lf_groups; ++i) {
             auto lf_stream = get_stream_for_section(stream, frame.toc.entries[1 + i]);
-            TRY(read_lf_group(lf_stream, frame.image, frame.frame_header));
+            TRY(read_lf_group(lf_stream, frame.image, frame.frame_header, metadata, frame.lf_global, group_dim));
         }
 
         if (frame.frame_header.encoding == Encoding::kVarDCT) {

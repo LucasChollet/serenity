@@ -8,6 +8,8 @@
 #include <LibGfx/ImageFormats/JPEGXLCommon.h>
 #include <LibGfx/ImageFormats/JPEGXLEntropyDecoder.h>
 
+static u32 FFF = 0;
+
 namespace Gfx {
 
 ErrorOr<ANSHistogram> ANSHistogram::read_histogram(LittleEndianInputBitStream& stream, u8 log_alphabet_size)
@@ -270,6 +272,8 @@ ErrorOr<LZ77> read_lz77(LittleEndianInputBitStream& stream)
 ErrorOr<EntropyDecoder> EntropyDecoder::create(LittleEndianInputBitStream& stream, u32 initial_num_distrib)
 
 {
+    FFF = 0;
+    //    dbgln("Creating EntropyDecoder");
     EntropyDecoder entropy_decoder;
     // C.2 - Distribution decoding
     entropy_decoder.m_lz77 = TRY(read_lz77(stream));
@@ -383,6 +387,10 @@ ErrorOr<u32> EntropyDecoder::decode_hybrid_uint(LittleEndianInputBitStream& stre
     if (m_lz77.lz77_enabled)
         m_lz77_window[(m_lz77_num_decoded++) & 0xFFFFF] = r;
 
+    if (r == 41 and FFF == 47) {
+        [[maybe_unused]] bool stop = true;
+    }
+    //    dbgln("Hybrid: {} - {}", FFF++, r);
     return r;
 }
 
