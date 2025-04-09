@@ -67,6 +67,11 @@ public:
         return other;
     }
 
+    i32& get(u32 x, u32 y)
+    {
+        return m_pixels[y * m_width + x];
+    }
+
     i32 get(u32 x, u32 y) const
     {
         return m_pixels[y * m_width + x];
