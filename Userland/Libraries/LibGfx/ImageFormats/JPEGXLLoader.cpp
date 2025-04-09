@@ -2290,12 +2290,6 @@ static ErrorOr<void> read_modular_group_data(LittleEndianInputBitStream& stream,
     Vector<Channel&> original_channels;
     auto& channels = global_modular.modular_data.channels;
     for (auto [i, channel] : enumerate(channels)) {
-        if (i < global_modular.modular_data.nb_meta_channels)
-            continue;
-        if (channels[i].width() <= frame_header.group_dim() && channels[i].height() <= frame_header.group_dim())
-            continue;
-        if (channel.hshift() >= 3 && channel.vshift() >= 3)
-            continue;
         if (channel.decoded())
             continue;
         auto channel_min_shift = min(channel.hshift(), channel.vshift());
