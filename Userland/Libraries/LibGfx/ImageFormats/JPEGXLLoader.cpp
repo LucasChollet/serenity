@@ -1682,12 +1682,17 @@ static ErrorOr<ModularData> read_modular_bitstream(LittleEndianInputBitStream& s
 
     TRY(modular_data.create_channels(channels_info));
 
-    auto will_be_decoded = [&](u32 index, Channel const& channel) {
+    auto will_be_decoded = [&](u32 index, Channel const& channel, bool& need_to_stop) {
+        if (need_to_stop)
+            return false;
         if (channel.width() == 0 || channel.height() == 0)
             return false;
         if (index < modular_data.nb_meta_channels)
             return true;
-        return channel.width() <= group_dim && channel.height() <= group_dim;
+        if (channel.width() <= group_dim && channel.height() <= group_dim)
+            return true;
+        need_to_stop = true;
+        return false;
     };
 
     if constexpr (JPEGXL_DEBUG) {
@@ -1710,8 +1715,9 @@ static ErrorOr<ModularData> read_modular_bitstream(LittleEndianInputBitStream& s
                 break;
             }
         }
+        bool need_to_stop { false };
         for (auto const& [i, channel] : enumerate(modular_data.channels))
-            dbgln("- Channel {}: {}x{}{}", i, channel.width(), channel.height(), will_be_decoded(i, channel) ? ""sv : " - skipped"sv);
+            dbgln("- Channel {}: {}x{}{}", i, channel.width(), channel.height(), will_be_decoded(i, channel, need_to_stop) ? ""sv : " - skipped"sv);
     }
 
     Optional<MATree> local_tree;
@@ -1722,8 +1728,9 @@ static ErrorOr<ModularData> read_modular_bitstream(LittleEndianInputBitStream& s
     // that are to be decoded.
     auto const dist_multiplier = [&]() {
         u32 dist_multiplier {};
+        bool need_to_stop { false };
         for (auto [i, channel] : enumerate(modular_data.channels)) {
-            if (will_be_decoded(i, channel) && channel.width() > dist_multiplier)
+            if (will_be_decoded(i, channel, need_to_stop) && channel.width() > dist_multiplier)
                 dist_multiplier = channel.width();
         }
         return dist_multiplier;
@@ -1738,8 +1745,9 @@ static ErrorOr<ModularData> read_modular_bitstream(LittleEndianInputBitStream& s
     properties[1] = stream_index;
 
     auto const& tree = local_tree.has_value() ? *local_tree : global_tree;
+    bool need_to_stop { false };
     for (auto [i, channel] : enumerate(modular_data.channels)) {
-        if (!will_be_decoded(i, channel))
+        if (!will_be_decoded(i, channel, need_to_stop))
             continue;
 
         auto self_correcting_data = TRY(SelfCorrectingData::create(modular_data.wp_params, channel.width()));
