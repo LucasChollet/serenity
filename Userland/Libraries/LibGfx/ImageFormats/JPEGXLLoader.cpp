@@ -2636,13 +2636,59 @@ static void ycbcr_to_rgb(Image& image, u8 bits_per_sample)
     for_each_pixel_of_color_channels(image, move(color_conversion));
 }
 
+// L.2.2  Inverse XYB transform
+static void xyb_to_rgb(Frame& frame, ImageMetadata const& metadata)
+{
+    // "X, Y, B samples are converted to an RGB colour encoding as specified in this subclause,
+    // in which oim denotes metadata.opsin_inverse_matrix."
+    auto& oim = metadata.opsin_inverse_matrix;
+    float to_float = 1. / ((1 << (metadata.bit_depth.bits_per_sample)) - 1);
+    auto color_conversion = [&](i32& c1, i32& c2, i32& c3) {
+        float const y_ = c1 * to_float;
+        float const x_ = c2 * to_float;
+        float const b_ = c3 * to_float;
+
+        float y, x, b;
+        if (frame.frame_header.encoding == Encoding::kModular) {
+            y = y_ * frame.lf_global.lf_dequant.m_y_lf_unscaled;
+            x = x_ * frame.lf_global.lf_dequant.m_x_lf_unscaled;
+            b = (b_ + y_) * frame.lf_global.lf_dequant.m_b_lf_unscaled;
+        } else {
+            y = y_;
+            x = x_;
+            b = b_;
+        }
+
+        float Lgamma = y + x;
+        float Mgamma = y - x;
+        float Sgamma = b;
+        float itscale = 255 / metadata.tone_mapping.intensity_target;
+        float Lmix = (pow(Lgamma - cbrt(oim.opsin_bias0), 3) + oim.opsin_bias0) * itscale;
+        float Mmix = (pow(Mgamma - cbrt(oim.opsin_bias1), 3) + oim.opsin_bias1) * itscale;
+        float Smix = (pow(Sgamma - cbrt(oim.opsin_bias2), 3) + oim.opsin_bias2) * itscale;
+        float R = oim.inv_mat00 * Lmix + oim.inv_mat01 * Mmix + oim.inv_mat02 * Smix;
+        float G = oim.inv_mat10 * Lmix + oim.inv_mat11 * Mmix + oim.inv_mat12 * Smix;
+        float B = oim.inv_mat20 * Lmix + oim.inv_mat21 * Mmix + oim.inv_mat22 * Smix;
+
+        // FIXME: Don't clamp here and keep floats!
+        //        R = clamp(R, 0, 1);
+        //        G = clamp(G, 0, 1);
+        //        B = clamp(B, 0, 1);
+        c1 = R / to_float;
+        c2 = G / to_float;
+        c3 = B / to_float;
+    };
+
+    for_each_pixel_of_color_channels(*frame.image, move(color_conversion));
+}
+
 static void apply_colour_transformation(Frame& frame, ImageMetadata const& metadata)
 {
     if (frame.frame_header.do_YCbCr)
         ycbcr_to_rgb(*frame.image, metadata.bit_depth.bits_per_sample);
 
     if (metadata.xyb_encoded) {
-        TODO();
+        xyb_to_rgb(frame, metadata);
     } else {
         // FIXME: Do a proper color transformation with metadata.colour_encoding
     }
