@@ -1992,7 +1992,7 @@ static ErrorOr<void> read_lf_group(LittleEndianInputBitStream&,
         // This code actually only detect that we need to read a null image
         // so a no-op. It should be fully rewritten when we add proper support
         // for LfGroup.
-        TODO();
+        dbgln("Fixme: Decode ModularLFGroup for channel: {}x{}(h:{}, v:{})", channel.width(), channel.height(), channel.hshift(), channel.vshift());
     }
 
     // HF metadata
