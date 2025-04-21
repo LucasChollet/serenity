@@ -1947,18 +1947,61 @@ static ErrorOr<LfGlobal> read_lf_global(LittleEndianInputBitStream& stream,
 }
 ///
 
-/// G.2 - LfGroup
-static ErrorOr<void> read_lf_group(LittleEndianInputBitStream&,
-    Span<Channel> channels,
-    FrameHeader const& frame_header)
+/// Helper to partition an image in groups
+static IntRect rect_for_group(Channel const& channel, u32 group_dim, u32 group_index)
 {
+    u32 horizontal_group_dim = group_dim >> channel.hshift();
+    u32 vertical_group_dim = group_dim >> channel.vshift();
+
+    IntRect rect(0, 0, horizontal_group_dim, vertical_group_dim);
+
+    auto nb_groups_per_row = (channel.width() + horizontal_group_dim - 1) / horizontal_group_dim;
+    auto group_x = group_index % nb_groups_per_row;
+    rect.set_x(group_x * horizontal_group_dim);
+    if (group_x == nb_groups_per_row - 1 && channel.width() % horizontal_group_dim != 0) {
+        rect.set_width(channel.width() % horizontal_group_dim);
+    }
+
+    auto nb_groups_per_column = (channel.height() + vertical_group_dim - 1) / vertical_group_dim;
+    auto group_y = group_index / nb_groups_per_row;
+    rect.set_y(group_y * vertical_group_dim);
+    if (group_y == nb_groups_per_column - 1 && channel.height() % vertical_group_dim != 0) {
+        rect.set_height(channel.height() % vertical_group_dim);
+    }
+
+    return rect;
+}
+///
+
+/// G.2 - LfGroup
+struct LFGroupOptions {
+    FrameHeader const& frame_header;
+    GlobalModular& global_modular;
+    u32 group_index {};
+    u32 stream_index {};
+    u32 bit_depth {};
+};
+
+static ErrorOr<void> read_lf_group(LittleEndianInputBitStream& stream,
+    LFGroupOptions&& options)
+{
+    auto const& [frame_header,
+        global_modular,
+        group_index,
+        stream_index,
+        bit_depth]
+        = options;
+
     // LF coefficients
     if (frame_header.encoding == Encoding::kVarDCT) {
         TODO();
     }
 
     // ModularLfGroup
-    for (auto const& channel : channels) {
+    Vector<ChannelInfo> channels_info;
+    Vector<Channel&> original_channels;
+    u32 lf_group_dim = frame_header.group_dim() * 8;
+    for (auto& channel : global_modular.modular_data.channels) {
         if (channel.decoded())
             continue;
 
@@ -1966,6 +2009,35 @@ static ErrorOr<void> read_lf_group(LittleEndianInputBitStream&,
             continue;
 
         dbgln("Fixme: Decode ModularLFGroup for channel: {}x{}(h:{}, v:{})", channel.width(), channel.height(), channel.hshift(), channel.vshift());
+
+        auto rect_size = rect_for_group(channel, lf_group_dim, group_index).size();
+        TRY(channels_info.try_append({
+            .width = static_cast<u32>(rect_size.width()),
+            .height = static_cast<u32>(rect_size.height()),
+            .hshift = channel.hshift(),
+            .vshift = channel.vshift(),
+        }));
+        TRY(original_channels.try_append(channel));
+    }
+    if (!channels_info.is_empty()) {
+        dbgln_if(JPEGXL_DEBUG, "Decoding LFGroup {} for rectangle {}", group_index, rect_for_group(original_channels[0], lf_group_dim, group_index));
+
+        auto decoded = TRY(read_modular_bitstream(stream,
+            {
+                .channels_info = channels_info.span(),
+                .decoder = global_modular.decoder,
+                .global_tree = global_modular.ma_tree,
+                .group_dim = frame_header.group_dim(),
+                .stream_index = stream_index,
+                .apply_transformations = ModularOptions::ApplyTransformations::Yes,
+                .bit_depth = bit_depth,
+            }));
+
+        // The decoded modular group data is then copied into the partially decoded GlobalModular image in the corresponding positions.
+        for (u32 i = 0; i < original_channels.size(); ++i) {
+            auto destination = rect_for_group(original_channels[i], lf_group_dim, group_index);
+            original_channels[i].copy_from(destination, decoded.channels[i]);
+        }
     }
 
     // HF metadata
@@ -2234,30 +2306,6 @@ static ErrorOr<void> apply_transformation(
 ///
 
 /// G.3.2 - PassGroup
-static IntRect rect_for_group(Channel const& channel, u32 group_dim, u32 group_index)
-{
-    u32 horizontal_group_dim = group_dim >> channel.hshift();
-    u32 vertical_group_dim = group_dim >> channel.vshift();
-
-    IntRect rect(0, 0, horizontal_group_dim, vertical_group_dim);
-
-    auto nb_groups_per_row = (channel.width() + horizontal_group_dim - 1) / horizontal_group_dim;
-    auto group_x = group_index % nb_groups_per_row;
-    rect.set_x(group_x * horizontal_group_dim);
-    if (group_x == nb_groups_per_row - 1 && channel.width() % horizontal_group_dim != 0) {
-        rect.set_width(channel.width() % horizontal_group_dim);
-    }
-
-    auto nb_groups_per_column = (channel.height() + vertical_group_dim - 1) / vertical_group_dim;
-    auto group_y = group_index / nb_groups_per_row;
-    rect.set_y(group_y * vertical_group_dim);
-    if (group_y == nb_groups_per_column - 1 && channel.height() % vertical_group_dim != 0) {
-        rect.set_height(channel.height() % vertical_group_dim);
-    }
-
-    return rect;
-}
-
 struct PassGroupOptions {
     GlobalModular& global_modular;
     FrameHeader const& frame_header;
@@ -2444,7 +2492,15 @@ static ErrorOr<Frame> read_frame(LittleEndianInputBitStream& stream,
     if (frame.num_groups == 1 && frame.frame_header.passes.num_passes == 1) {
         auto section_stream = get_stream_for_section(stream, frame.toc.entries[0]);
         frame.lf_global = TRY(read_lf_global(section_stream, { frame.width, frame.height }, frame.frame_header, metadata));
-        TRY(read_lf_group(section_stream, frame.lf_global.gmodular.modular_data.channels, frame.frame_header));
+        // From H.4.1, "The stream index is defined as follows: [...] for ModularLfGroup: 1 + num_lf_groups + LF group index;"
+        TRY(read_lf_group(section_stream, {
+                                              .frame_header = frame.frame_header,
+                                              .global_modular = frame.lf_global.gmodular,
+                                              .group_index = 0,
+                                              .stream_index = 1 + frame.num_lf_groups,
+                                              .bit_depth = bits_per_sample,
+
+                                          }));
 
         // From H.4.1, ModularGroup: 1 + 3 * num_lf_groups + 17 + num_groups * pass index + group index
         u32 stream_index = 1 + 3 * frame.num_lf_groups + 17;
@@ -2465,7 +2521,15 @@ static ErrorOr<Frame> read_frame(LittleEndianInputBitStream& stream,
 
         for (u32 i {}; i < frame.num_lf_groups; ++i) {
             auto lf_stream = get_stream_for_section(stream, frame.toc.entries[1 + i]);
-            TRY(read_lf_group(lf_stream, frame.lf_global.gmodular.modular_data.channels, frame.frame_header));
+            // From H.4.1, "The stream index is defined as follows: [...] for ModularLfGroup: 1 + num_lf_groups + LF group index;"
+            TRY(read_lf_group(lf_stream, {
+                                             .frame_header = frame.frame_header,
+                                             .global_modular = frame.lf_global.gmodular,
+                                             .group_index = i,
+                                             .stream_index = 1 + frame.num_lf_groups + i,
+                                             .bit_depth = bits_per_sample,
+
+                                         }));
         }
 
         if (frame.frame_header.encoding == Encoding::kVarDCT) {
