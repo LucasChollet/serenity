@@ -77,14 +77,16 @@ private:
             m_on_error = on_error.release_value();
 
         enqueue_work([self = NonnullRefPtr(*this), promise = move(promise), origin_event_loop = &Core::EventLoop::current()]() mutable {
-            auto result = self->m_action(*self);
-
             // The event loop cancels the promise when it exits.
             self->m_canceled |= promise->is_rejected();
 
+            Optional<ErrorOr<Result>> result;
+            if (!self->m_canceled)
+                result = self->m_action(*self);
+
             // All of our work was successful and we weren't cancelled; resolve the event loop's promise.
-            if (!self->m_canceled && !result.is_error()) {
-                self->m_result = result.release_value();
+            if (!self->m_canceled && result.has_value() && !result->is_error()) {
+                self->m_result = result.release_value().release_value();
 
                 // If there is no completion callback, we don't rely on the user keeping around the event loop.
                 if (self->m_on_complete) {
@@ -97,8 +99,8 @@ private:
             } else {
                 // We were either unsuccessful or cancelled (in which case there is no error).
                 auto error = Error::from_errno(ECANCELED);
-                if (result.is_error())
-                    error = result.release_error();
+                if (result.has_value() && result->is_error())
+                    error = result.release_value().release_error();
 
                 promise->reject(Error::from_errno(ECANCELED));
 
