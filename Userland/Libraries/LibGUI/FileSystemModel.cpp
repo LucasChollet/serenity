@@ -690,15 +690,33 @@ Icon FileSystemModel::icon_for(Node const& node) const
 
 using BitmapBackgroundAction = Threading::BackgroundAction<NonnullRefPtr<Gfx::Bitmap>>;
 
-// Mutex protected thumbnail cache data shared between threads.
-struct ThumbnailCache {
-    // Null pointers indicate an image that couldn't be loaded due to errors.
-    HashMap<ByteString, RefPtr<Gfx::Bitmap>> thumbnail_cache {};
-    HashMap<ByteString, NonnullRefPtr<BitmapBackgroundAction>> loading_thumbnails {};
+struct ImageDecoderDataWithCustomDestructor {
+    ~ImageDecoderDataWithCustomDestructor()
+    {
+        thumbnail_cache.with_locked([](auto& cache) {
+            for (auto& action : cache.loading_thumbnails)
+                action.value->cancel();
+        });
+
+        client.with_locked([&](auto& maybe_client) {
+            if (maybe_client)
+                Threading::quit_background_thread();
+        });
+    }
+
+    Threading::MutexProtected<RefPtr<ImageDecoderClient::Client>> client;
+
+    // Mutex protected thumbnail cache data shared between threads.
+    struct ThumbnailCache {
+        // Null pointers indicate an image that couldn't be loaded due to errors.
+        HashMap<ByteString, RefPtr<Gfx::Bitmap>> thumbnail_cache {};
+        HashMap<ByteString, NonnullRefPtr<BitmapBackgroundAction>> loading_thumbnails {};
+    };
+
+    Threading::MutexProtected<ThumbnailCache> thumbnail_cache {};
 };
 
-static Threading::MutexProtected<ThumbnailCache> s_thumbnail_cache {};
-static Threading::MutexProtected<RefPtr<ImageDecoderClient::Client>> s_image_decoder_client {};
+static ImageDecoderDataWithCustomDestructor s_image_decoder_data {};
 
 static ErrorOr<NonnullRefPtr<Gfx::Bitmap>> render_thumbnail(StringView path)
 {
@@ -706,11 +724,11 @@ static ErrorOr<NonnullRefPtr<Gfx::Bitmap>> render_thumbnail(StringView path)
     Gfx::IntSize const thumbnail_size { 32, 32 };
 
     auto file = TRY(Core::MappedFile::map(path));
-    auto decoded_image = TRY(s_image_decoder_client.with_locked([=, &file](auto& maybe_client) -> ErrorOr<Optional<ImageDecoderClient::DecodedImage>> {
+    auto decoded_image = TRY(s_image_decoder_data.client.with_locked([=, &file](auto& maybe_client) -> ErrorOr<Optional<ImageDecoderClient::DecodedImage>> {
         if (!maybe_client) {
             maybe_client = TRY(ImageDecoderClient::Client::try_create());
             maybe_client->on_death = []() {
-                s_image_decoder_client.with_locked([](auto& client) {
+                s_image_decoder_data.client.with_locked([](auto& client) {
                     client = nullptr;
                 });
             };
@@ -741,7 +759,7 @@ bool FileSystemModel::fetch_thumbnail_for(Node const& node)
     auto path = node.full_path();
 
     // See if we already have the thumbnail we're looking for in the cache.
-    auto was_in_cache = s_thumbnail_cache.with_locked([&](auto& cache) {
+    auto was_in_cache = s_image_decoder_data.thumbnail_cache.with_locked([&](auto& cache) {
         auto it = cache.thumbnail_cache.find(path);
         if (it != cache.thumbnail_cache.end()) {
             // Loading was unsuccessful.
@@ -788,7 +806,7 @@ bool FileSystemModel::fetch_thumbnail_for(Node const& node)
 
     auto const on_complete = [weak_this, path, update_progress](auto thumbnail) -> ErrorOr<void> {
         auto finished_generating_thumbnails = false;
-        s_thumbnail_cache.with_locked([path, thumbnail, &finished_generating_thumbnails](auto& cache) {
+        s_image_decoder_data.thumbnail_cache.with_locked([path, thumbnail, &finished_generating_thumbnails](auto& cache) {
             cache.thumbnail_cache.set(path, thumbnail);
             cache.loading_thumbnails.remove(path);
             finished_generating_thumbnails = cache.loading_thumbnails.is_empty();
@@ -806,7 +824,7 @@ bool FileSystemModel::fetch_thumbnail_for(Node const& node)
         // Note: We need to defer that to avoid the function removing its last reference
         //       i.e. trying to destroy itself, which is prohibited.
         Core::EventLoop::current().deferred_invoke([path, error = Error::copy(error)]() mutable {
-            s_thumbnail_cache.with_locked([path, error = move(error)](auto& cache) {
+            s_image_decoder_data.thumbnail_cache.with_locked([path, error = move(error)](auto& cache) {
                 if (error != Error::from_errno(ECANCELED)) {
                     cache.thumbnail_cache.set(path, nullptr);
                     dbgln("Failed to load thumbnail for {}: {}", path, error);
@@ -818,7 +836,7 @@ bool FileSystemModel::fetch_thumbnail_for(Node const& node)
         update_progress(false);
     };
 
-    s_thumbnail_cache.with_locked([path, action, on_complete, on_error](auto& cache) {
+    s_image_decoder_data.thumbnail_cache.with_locked([path, action, on_complete, on_error](auto& cache) {
         cache.loading_thumbnails.set(path, BitmapBackgroundAction::construct(move(action), move(on_complete), move(on_error)));
     });
 
