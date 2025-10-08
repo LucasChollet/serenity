@@ -235,7 +235,7 @@ ErrorOr<CCITTStatus> decode_single_ccitt_2d_line(
         return *next_change;
     };
 
-    auto const encode_for = [&](Change change, i8 offset = 0) -> ErrorOr<void> {
+    auto const encode_for = [&](Change change, i8 offset = 0) __attribute__((always_inline)) -> ErrorOr<void> {
         i32 const to_encode = remainder_from_pass_mode + change.column - column + offset;
         if (to_encode < 0)
             return Error::from_string_literal("CCITTDecoder: Corrupted stream");
