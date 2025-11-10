@@ -5,6 +5,7 @@
  */
 
 #include <AK/Assertions.h>
+#include <AK/Vector.h>
 #include <LibMain/Main.h>
 #include <LibThreading/Thread.h>
 #include <errno.h>

@@ -13,7 +13,7 @@
 #include <AK/DistinctNumeric.h>
 #include <AK/Function.h>
 #include <AK/Result.h>
-#include <LibCore/EventReceiver.h>
+#include <AK/Weakable.h>
 #include <pthread.h>
 
 namespace Threading {

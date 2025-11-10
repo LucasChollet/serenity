@@ -48,6 +48,7 @@ target_link_libraries(LibCoreBasic PRIVATE LibCoreMinimal LibTimeZone)
 
 set(SOURCES
     AnonymousBuffer.cpp
+    BackgroundAction.cpp
     Command.cpp
     LockFile.cpp
     MappedFile.cpp
@@ -105,7 +106,7 @@ if (APPLE OR CMAKE_SYSTEM_NAME STREQUAL "GNU")
 endif()
 
 serenity_lib(LibCore core)
-target_link_libraries(LibCore PRIVATE LibCrypt LibSystem LibTimeZone LibURL)
+target_link_libraries(LibCore PRIVATE LibCrypt LibSystem LibThreading LibTimeZone LibURL)
 target_link_libraries(LibCore PUBLIC LibCoreMinimal LibCoreBasic)
 
 if (APPLE)
