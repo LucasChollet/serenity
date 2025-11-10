@@ -49,6 +49,7 @@ target_link_libraries(LibCoreBasic PRIVATE LibCoreMinimal LibTimeZone)
 set(SOURCES
     AnonymousBuffer.cpp
     BackgroundAction.cpp
+    ChildWatcher.cpp
     Command.cpp
     LockFile.cpp
     MappedFile.cpp

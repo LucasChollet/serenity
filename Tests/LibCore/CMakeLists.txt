@@ -1,5 +1,6 @@
 set(TEST_SOURCES
     TestLibCoreArgsParser.cpp
+    TestLibCoreChildWatcher.cpp
     TestLibCoreDateTime.cpp
     TestLibCoreDeferredInvoke.cpp
     TestLibCoreFilePermissionsMask.cpp

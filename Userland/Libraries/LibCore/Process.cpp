@@ -11,13 +11,16 @@
 #include <AK/ScopeGuard.h>
 #include <AK/String.h>
 #include <AK/Vector.h>
+#include <LibCore/ChildWatcher.h>
 #include <LibCore/Environment.h>
+#include <LibCore/EventLoop.h>
 #include <LibCore/File.h>
 #include <LibCore/Process.h>
 #include <LibCore/Socket.h>
 #include <LibCore/SocketAddress.h>
 #include <LibCore/StandardPaths.h>
 #include <LibCore/System.h>
+#include <LibThreading/Thread.h>
 #include <errno.h>
 #include <signal.h>
 #include <spawn.h>
@@ -346,6 +349,50 @@ ErrorOr<bool> Process::wait_for_termination()
     }
 
     return exited_with_code_0;
+}
+
+static intptr_t thread_function(NonnullRefPtr<Notifier> notifier, int pipe, pid_t child)
+{
+    auto emit_child_event = [&](ChildWatcherEvent event) {
+        // We are making a cyclic reference here, it will be managed in `ChildWatcher::register_event`.
+        notifier->on_activation = [notifier, event] {
+            ChildWatcher::register_event(event, notifier);
+            notifier->set_enabled(false);
+        };
+
+        // Let's wake up the notifier on the main thread.
+        MUST(Core::System::write(pipe, Array<u8, 1> { 42 }));
+    };
+
+    int status;
+    if (waitpid(child, &status, 0) == -1)
+        dbgln("Can't wait on child in custody: {}", Error::from_syscall("waitpid"sv, errno));
+
+    if (WIFEXITED(status)) {
+        emit_child_event({ .child_pid = child, .type = ChildWatcherEvent::EventType::Exited, .exit_value = WEXITSTATUS(status) });
+    } else if (WIFSIGNALED(status)) {
+        emit_child_event({ .child_pid = child, .type = ChildWatcherEvent::EventType::ReceivedSignal, .signal_value = WTERMSIG(status) });
+    } else if (WIFSTOPPED(status) || WIFCONTINUED(status)) {
+        TODO();
+    } else {
+        VERIFY_NOT_REACHED();
+    }
+
+    return 0;
+}
+
+ErrorOr<pid_t> Process::get_events_on_current_event_loop()
+{
+    auto pipe = TRY(Core::System::pipe2(O_CLOEXEC));
+    auto notifier = Core::Notifier::construct(pipe[0], NotificationType::Read);
+
+    auto pid = take_pid();
+
+    auto thread = TRY(Threading::Thread::try_create([=]() { return thread_function(notifier, pipe[1], pid); }, "Child custody"sv));
+    thread->start();
+    thread->detach();
+
+    return pid;
 }
 
 ErrorOr<IPCProcess::ProcessAndIPCSocket> IPCProcess::spawn_and_connect_to_process(ProcessSpawnOptions const& options)

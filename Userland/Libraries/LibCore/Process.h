@@ -95,6 +95,8 @@ public:
     // FIXME: Make it return an exit code.
     ErrorOr<bool> wait_for_termination();
 
+    ErrorOr<pid_t> get_events_on_current_event_loop();
+
     pid_t take_pid()
     {
         VERIFY(!m_was_managed);
