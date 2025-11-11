@@ -25,6 +25,12 @@ struct ChildWatcherEvent {
 
     Optional<int> exit_value {};
     Optional<int> signal_value {};
+
+    bool did_exited_abnormally() const
+    {
+        VERIFY(exit_value.has_value() || signal_value.has_value());
+        return (exit_value.value_or(0) + signal_value.value_or(0)) > 0;
+    }
 };
 
 class ChildWatcher : public RefCounted<ChildWatcher> {
