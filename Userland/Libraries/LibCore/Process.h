@@ -50,6 +50,7 @@ struct ProcessSpawnOptions {
     using FileActionType = Variant<FileAction::OpenFile, FileAction::CloseFile>;
     Vector<FileActionType> file_actions {};
 
+    bool use_session_leader_as_process_group { false };
     KeepAsChild keep_as_child = KeepAsChild::No;
 };
 

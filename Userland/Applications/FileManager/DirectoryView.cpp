@@ -493,45 +493,27 @@ void DirectoryView::set_should_show_dotfiles(bool show_dotfiles)
 
 void DirectoryView::launch(URL::URL const&, LauncherHandler const& launcher_handler) const
 {
-    // FIXME: Add posix_spawnattr_t support to Core::Process and use it here.
-    pid_t child;
-
-    posix_spawnattr_t spawn_attributes;
-    posix_spawnattr_init(&spawn_attributes);
-
-    posix_spawnattr_setpgroup(&spawn_attributes, getsid(0));
-
-    short current_flag;
-    posix_spawnattr_getflags(&spawn_attributes, &current_flag);
-    posix_spawnattr_setflags(&spawn_attributes, static_cast<short>(current_flag | POSIX_SPAWN_SETPGROUP));
-
+    // FIXME: Maybe show an error dialog if we fail to spawn?
     if (launcher_handler.details().launcher_type == Desktop::Launcher::LauncherType::Application) {
-        posix_spawn_file_actions_t spawn_actions;
-        posix_spawn_file_actions_init(&spawn_actions);
-        posix_spawn_file_actions_addchdir(&spawn_actions, path().characters());
-
-        Vector<char const*, 2> argv;
-        argv.append(launcher_handler.details().name.characters());
-
-        for (auto const& argument : launcher_handler.details().arguments)
-            argv.append(argument.characters());
-
-        argv.append(nullptr);
-
-        errno = posix_spawn(&child, launcher_handler.details().executable.characters(), &spawn_actions, &spawn_attributes, const_cast<char**>(argv.data()), environ);
-        if (errno) {
-            perror("posix_spawn");
-        } else if (disown(child) < 0) {
-            perror("disown");
-        }
-        posix_spawn_file_actions_destroy(&spawn_actions);
+        auto process = Core::Process::spawn({
+            .executable = launcher_handler.details().executable,
+            .arguments = launcher_handler.details().arguments,
+            .working_directory = path(),
+            .use_session_leader_as_process_group = true,
+            .keep_as_child = Core::KeepAsChild::No,
+        });
+        if (process.is_error())
+            dbgln("Error while spawning application: {}", process.error());
     } else {
         for (auto& path : selected_file_paths()) {
-            char const* argv[] = { launcher_handler.details().name.characters(), path.characters(), nullptr };
-            if ((errno = posix_spawn(&child, launcher_handler.details().executable.characters(), nullptr, &spawn_attributes, const_cast<char**>(argv), environ)))
-                continue;
-            if (disown(child) < 0)
-                perror("disown");
+            auto process = Core::Process::spawn({
+                .executable = launcher_handler.details().executable,
+                .arguments = Vector { path },
+                .use_session_leader_as_process_group = true,
+                .keep_as_child = Core::KeepAsChild::No,
+            });
+            if (process.is_error())
+                dbgln("Error while spawning application: {}", process.error());
         }
     }
 }

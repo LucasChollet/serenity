@@ -96,6 +96,17 @@ ErrorOr<Process> Process::spawn(ProcessSpawnOptions const& options)
             }));
     }
 
+    posix_spawnattr_t spawn_attributes;
+    CHECK(posix_spawnattr_init(&spawn_attributes));
+
+    if (options.use_session_leader_as_process_group) {
+        CHECK(posix_spawnattr_setpgroup(&spawn_attributes, getsid(0)));
+
+        short current_flag;
+        CHECK(posix_spawnattr_getflags(&spawn_attributes, &current_flag));
+        CHECK(posix_spawnattr_setflags(&spawn_attributes, static_cast<short>(current_flag | POSIX_SPAWN_SETPGROUP)));
+    }
+
 #undef CHECK
 
     ArgvList argv_list(options.executable, options.arguments.size());
@@ -104,9 +115,9 @@ ErrorOr<Process> Process::spawn(ProcessSpawnOptions const& options)
 
     pid_t pid;
     if (options.search_for_executable_in_path) {
-        pid = TRY(System::posix_spawnp(options.executable.view(), &spawn_actions, nullptr, const_cast<char**>(argv_list.get().data()), Core::Environment::raw_environ()));
+        pid = TRY(System::posix_spawnp(options.executable.view(), &spawn_actions, &spawn_attributes, const_cast<char**>(argv_list.get().data()), Core::Environment::raw_environ()));
     } else {
-        pid = TRY(System::posix_spawn(options.executable.view(), &spawn_actions, nullptr, const_cast<char**>(argv_list.get().data()), Core::Environment::raw_environ()));
+        pid = TRY(System::posix_spawn(options.executable.view(), &spawn_actions, &spawn_attributes, const_cast<char**>(argv_list.get().data()), Core::Environment::raw_environ()));
     }
 
     auto process = Process { pid };
