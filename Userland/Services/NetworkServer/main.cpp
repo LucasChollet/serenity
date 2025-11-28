@@ -10,6 +10,7 @@
 #include <LibCore/Command.h>
 #include <LibCore/ConfigFile.h>
 #include <LibCore/EventLoop.h>
+#include <LibCore/Process.h>
 #include <LibCore/System.h>
 #include <LibMain/Main.h>
 #include <unistd.h>
@@ -91,15 +92,13 @@ ErrorOr<int> serenity_main(Main::Arguments)
 
     if (!interfaces_with_dhcp_enabled.is_empty()) {
         dbgln("Running DHCPClient for interfaces: {}", interfaces_with_dhcp_enabled);
-        Vector<char*> args;
-        char dhcp_client_arg[] = "DHCPClient";
-        args.append(dhcp_client_arg);
-        for (auto& iface : interfaces_with_dhcp_enabled)
-            args.append(const_cast<char*>(iface.characters()));
-        args.append(nullptr);
 
-        auto dhcp_client_pid = TRY(Core::System::posix_spawnp("DHCPClient"sv, nullptr, nullptr, args.data(), environ));
-        TRY(Core::System::disown(dhcp_client_pid));
+        TRY(Core::Process::spawn({
+            .executable = "DHCPClient"sv,
+            .search_for_executable_in_path = true,
+            .arguments = interfaces_with_dhcp_enabled,
+            .keep_as_child = Core::KeepAsChild::No,
+        }));
     }
     return 0;
 }
