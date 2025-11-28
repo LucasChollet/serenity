@@ -76,14 +76,8 @@ ErrorOr<Process> Process::spawn(ProcessSpawnOptions const& options)
         posix_spawn_file_actions_destroy(&spawn_actions);
     };
 
-    if (options.working_directory.has_value()) {
-#ifdef AK_OS_SERENITY
+    if (options.working_directory.has_value())
         CHECK(posix_spawn_file_actions_addchdir(&spawn_actions, options.working_directory->characters()));
-#else
-        // FIXME: Support ProcessSpawnOptions::working_directory n platforms that support it.
-        TODO();
-#endif
-    }
 
     for (auto const& file_action : options.file_actions) {
         TRY(file_action.visit(
