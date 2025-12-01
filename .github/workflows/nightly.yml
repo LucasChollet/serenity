@@ -8,8 +8,6 @@ concurrency:
 
 jobs:
   CodeCoverage:
-    if: always() && github.repository == 'SerenityOS/serenity' && github.ref == 'refs/heads/master'
-
     strategy:
       fail-fast: false
 
