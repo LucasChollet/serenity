@@ -50,6 +50,10 @@ jobs:
           os: 'Serenity'
           arch: ${{ inputs.arch }}
 
+      - name: Set Disk Size for Coverage Builds
+        if: ${{ inputs.coverage == 'ON' }}
+        run: echo "SERENITY_DISK_SIZE_BYTES=5368709120" >> $GITHUB_ENV
+
       # === PREPARE FOR BUILDING ===
 
       - name: Lint
