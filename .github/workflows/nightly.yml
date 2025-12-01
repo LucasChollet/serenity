@@ -11,6 +11,9 @@ jobs:
     strategy:
       fail-fast: false
 
+    env:
+      SERENITY_DISK_SIZE_BYTES: 5242880
+
     uses: ./.github/workflows/serenity-template.yml
     with:
       toolchain: 'Clang'
