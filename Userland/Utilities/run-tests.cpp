@@ -332,6 +332,7 @@ ErrorOr<int> serenity_main(Main::Arguments arguments)
     StringView specified_test_root;
     ByteString test_glob;
     ByteString exclude_pattern;
+    ByteString skip_pattern;
     ByteString config_file;
 
     Core::ArgsParser args_parser;
@@ -356,6 +357,7 @@ ErrorOr<int> serenity_main(Main::Arguments arguments)
     args_parser.add_option(run_skipped_tests, "Run all matching tests, even those marked as 'skip'", "all", 'a');
     args_parser.add_option(unlink_coredumps, "Unlink coredumps after printing backtraces", "unlink-coredumps");
     args_parser.add_option(test_glob, "Only run tests matching the given glob", "filter", 'f', "glob");
+    args_parser.add_option(skip_pattern, "Regular expression to use to skip tests", "skip-pattern", 's', "pattern");
     args_parser.add_option(exclude_pattern, "Regular expression to use to exclude paths from being considered tests", "exclude-pattern", 'e', "pattern");
     args_parser.add_option(config_file, "Configuration file to use", "config-file", 'c', "filename");
     args_parser.add_positional_argument(specified_test_root, "Tests root directory", "path", Core::ArgsParser::Required::No);
@@ -413,10 +415,11 @@ ErrorOr<int> serenity_main(Main::Arguments arguments)
 
     // we need to preconfigure this, because we can't autoinitialize Regex types
     // in the Testrunner
-    auto skip_regex_pattern = config->read_entry("Global", "SkipRegex", "$^");
-    Regex<PosixExtended> skip_regex { skip_regex_pattern, {} };
+    if (skip_pattern.is_empty())
+        skip_pattern = config->read_entry("Global", "SkipRegex", "$^");
+    Regex<PosixExtended> skip_regex { skip_pattern, {} };
     if (skip_regex.parser_result.error != regex::Error::NoError) {
-        warnln("SkipRegex pattern \"{}\" is invalid", skip_regex_pattern);
+        warnln("SkipRegex pattern \"{}\" is invalid", skip_pattern);
         return 1;
     }
 
