@@ -5,15 +5,22 @@ echo
 echo "==== Running Tests on SerenityOS ===="
 
 echo "architecture is: >>$(uname -m)<<"
-if [ "$(uname -m)" = "AArch64" ] && [ "$1" != "--force" ] {
-    fail_count=0
-}
-else {
+
+if test $COVERAGE_RUN {
     mkdir -p "$HOME/profiles"
     export LLVM_PROFILE_FILE="$HOME/profiles/%p-profile.profraw"
     run-tests --show-progress=false --unlink-coredumps
     fail_count=$?
     unset LLVM_PROFILE_FILE
+}
+else {
+    if [ "$(uname -m)" = "AArch64" ] && [ "$1" != "--force" ] {
+        fail_count=0
+    }
+    else {
+        run-tests --show-progress=false --unlink-coredumps
+        fail_count=$?
+    }
 }
 
 echo "Failed: $fail_count" > ./test-results.log
