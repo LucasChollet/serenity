@@ -53,7 +53,9 @@ jobs:
       - name: Set Disk Size for Coverage Builds
         if: ${{ inputs.coverage == 'ON' }}
         # Using 5GiB here is arbitrary.
-        run: echo "SERENITY_DISK_SIZE_BYTES=5368709120" >> $GITHUB_ENV
+        run: |
+          echo "SERENITY_DISK_SIZE_BYTES=5368709120" >> $GITHUB_ENV
+          df -h
 
       # === PREPARE FOR BUILDING ===
 
@@ -128,6 +130,7 @@ jobs:
             -DDUMP_REGIONS_ON_CRASH=ON \
             -DENABLE_PCI_IDS_DOWNLOAD=OFF \
             -DENABLE_USB_IDS_DOWNLOAD=OFF
+          df -h
         env:
           CCACHE_DIR: ${{ env.SERENITY_CCACHE_DIR }}
 
@@ -169,6 +172,7 @@ jobs:
           SERENITY_KERNEL_CMDLINE: "graphics_subsystem_mode=off panic=shutdown system_mode=self-test${{ inputs.coverage == 'ON' && '-coverage' || '' }}"
           SERENITY_RUN: "ci"
         run: |
+          df -h
           echo "::group::ninja run # Qemu output"
           ninja run
           echo "::endgroup::"
