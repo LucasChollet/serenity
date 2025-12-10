@@ -20,7 +20,7 @@ const subjectiveLabels = [Label.IsBlocked, Label.Unclear];
 const buildLabels = [Label.RunCoverageBuild];
 
 function removeExistingPrLabels(currentLabels, keepSubjectiveLabels) {
-    console.log(label);
+    console.log(currentLabels);
     console.log(subjectiveLabels);
     console.log(buildLabels);
     return currentLabels.filter(
