@@ -20,12 +20,17 @@ const subjectiveLabels = [Label.IsBlocked, Label.Unclear];
 const buildLabels = [Label.RunCoverageBuild];
 
 function removeExistingPrLabels(currentLabels, keepSubjectiveLabels) {
+    console.log(label);
+    console.log(subjectiveLabels);
+    console.log(buildLabels);
     return currentLabels.filter(
-        label =>
+        label =>{
+            console.log(label);
+            console.log(buildLabels.includes(label));
             !label.includes("pr-") ||
             label === Label.HasConflicts ||
             (keepSubjectiveLabels && subjectiveLabels.includes(label)) ||
-            buildLabels.includes(label)
+            buildLabels.includes(label)}
     );
 }
 
