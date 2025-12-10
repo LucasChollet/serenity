@@ -16,6 +16,8 @@ jobs:
     
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: refs/pull/${{ github.event.pull_request.number }}/merge
 
       - name: Label pull request
         uses: actions/github-script@v8
