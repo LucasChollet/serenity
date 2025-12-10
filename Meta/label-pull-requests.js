@@ -11,18 +11,21 @@ const Label = {
     IsBlocked: "⛔️ pr-is-blocked",
     MaintainerApprovedButAwaitingCi: "✅ pr-maintainer-approved-but-awaiting-ci",
     NeedsReview: "👀 pr-needs-review",
+    RunCoverageBuild: "📑 pr-run-coverage-build",
     Unclear: "🤔 pr-unclear",
     WaitingForAuthor: "⏳ pr-waiting-for-author",
 };
 
 const subjectiveLabels = [Label.IsBlocked, Label.Unclear];
+const buildLabels = [Label.RunCoverageBuild];
 
 function removeExistingPrLabels(currentLabels, keepSubjectiveLabels) {
     return currentLabels.filter(
         label =>
             !label.includes("pr-") ||
             label === Label.HasConflicts ||
-            (keepSubjectiveLabels && subjectiveLabels.includes(label))
+            (keepSubjectiveLabels && subjectiveLabels.includes(label)) ||
+            buildLabels.includes(label)
     );
 }
 
