@@ -4,6 +4,13 @@ on:
   pull_request:
     types: [ labeled, opened, synchronize, reopened ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Do not cancel in-progress runs if a labeling action took place (other than a 'pr-run'). Otherwise, adding irrelevant
+  # labels causes existing runs to be canceled and a new (identical) run to be started.
+  cancel-in-progress: ${{ (github.event.action != 'labeled' && github.event.action != 'unlabeled') || contains(github.event.label.name, 'pr-run') }}
+
+
 jobs:
   Coverage:
     if: github.repository == 'SerenityOS/serenity' && contains(github.event.pull_request.labels.*.name, '📑 pr-run-coverage-build')
