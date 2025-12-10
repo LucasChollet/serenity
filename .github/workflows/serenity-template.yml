@@ -189,7 +189,6 @@ jobs:
         timeout-minutes: 60
 
       - name: Print Target Logs
-        # Extremely useful if Serenity hangs trying to run one of the tests
         if: ${{ !cancelled() && inputs.debug_options == 'NORMAL_DEBUG'}}
         working-directory: ${{ steps.build-parameters.outputs.build_directory }}
         run: '[ ! -e debug.log ] || cat debug.log'
