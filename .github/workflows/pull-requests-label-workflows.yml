@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   Coverage:
-    if: github.repository == 'SerenityOS/serenity' && contains(github.event.pull_request.labels.*.name, '📑 pr-run-coverage-build')
+    if: contains(github.event.pull_request.labels.*.name, '📑 pr-run-coverage-build')
     uses: ./.github/workflows/serenity-template.yml
     with:
       toolchain: 'Clang'
