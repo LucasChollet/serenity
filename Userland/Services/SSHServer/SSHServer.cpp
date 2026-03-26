@@ -7,6 +7,7 @@
 #include <AK/String.h>
 #include <LibCore/ArgsParser.h>
 #include <LibCore/EventLoop.h>
+#include <LibCore/Process.h>
 #include <LibCore/System.h>
 #include <LibCore/TCPServer.h>
 #include <LibMain/Main.h>
@@ -16,11 +17,33 @@
 static constexpr auto DEFAULT_LISTEN_ADDRESS = "0.0.0.0"sv;
 static constexpr auto DEFAULT_PORT = 22;
 
+static ErrorOr<void> accept_connection(Core::TCPServer& server, int redirect_stderr, bool unsafe_stub_private_key)
+{
+    auto client_socket = TRY(server.accept());
+    TRY(client_socket->set_close_on_exec(false));
+
+    Vector<ByteString> arguments = { "--socket-fd", ByteString::number(client_socket->fd()) };
+    if (unsafe_stub_private_key)
+        arguments.append("--unsafe-stub-private-key");
+
+    TRY(Core::Process::spawn(Core::ProcessSpawnOptions {
+        .name = "SSHServer - Connection"sv,
+        // FIXME: Find a reliable way to find this executable.
+        .executable = "./SSHConnection"sv,
+        .search_for_executable_in_path = true,
+        .arguments = arguments,
+        .file_actions = {
+            Core::FileAction::CloseFile { .fd = STDERR_FILENO },
+            Core::FileAction::DuplicateFile { .old_fd = redirect_stderr, .new_fd = STDERR_FILENO },
+        } }));
+
+    return {};
+}
+
 ErrorOr<int> serenity_main(Main::Arguments args)
 {
     TRY(Core::System::pledge("stdio accept inet unix rpath proc exec"));
-    TRY(Core::System::unveil("/etc/passwd", "r"));
-    TRY(Core::System::unveil("/bin/Shell", "rx"));
+    TRY(Core::System::unveil("/bin/SSHConnection", "rx"));
     TRY(Core::System::unveil(nullptr, nullptr));
 
     Optional<u32> port {};
@@ -35,21 +58,16 @@ ErrorOr<int> serenity_main(Main::Arguments args)
     if (port.has_value() && *port != static_cast<u16>(*port))
         return Error::from_string_literal("Invalid port number");
 
-    if (unsafe_stub_private_key)
-        SSH::Server::ServerConfiguration::the().use_unsafe_stubbed_private_key();
-
     Core::EventLoop loop;
 
     auto tcp_server = TRY(Core::TCPServer::try_create());
 
-    tcp_server->on_ready_to_accept = [&] {
-        auto maybe_client_socket = tcp_server->accept();
-        if (maybe_client_socket.is_error()) {
-            warnln("Failed to accept the client: {}", maybe_client_socket.error());
-            return;
-        }
+    auto redirect_stderr = dup(STDERR_FILENO);
 
-        auto client = SSH::Server::TCPClient::create(maybe_client_socket.release_value(), tcp_server);
+    tcp_server->on_ready_to_accept = [&] {
+        auto maybe_error = accept_connection(*tcp_server, redirect_stderr, unsafe_stub_private_key);
+        if (maybe_error.is_error())
+            warnln("Can't accept connection: {}", maybe_error.error());
     };
 
     TRY(tcp_server->listen(*IPv4Address::from_string(DEFAULT_LISTEN_ADDRESS), port.value_or(DEFAULT_PORT)));
