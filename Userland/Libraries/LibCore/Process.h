@@ -31,6 +31,11 @@ struct CloseFile {
     int fd { -1 };
 };
 
+struct DuplicateFile {
+    int old_fd { -1 };
+    int new_fd { -1 };
+};
+
 // FIXME: Implement other file actions
 
 }
@@ -42,7 +47,7 @@ struct ProcessSpawnOptions {
     Vector<ByteString> const& arguments {};
     Optional<ByteString> working_directory {};
 
-    using FileActionType = Variant<FileAction::OpenFile, FileAction::CloseFile>;
+    using FileActionType = Variant<FileAction::OpenFile, FileAction::CloseFile, FileAction::DuplicateFile>;
     Vector<FileActionType> file_actions {};
 };
 
