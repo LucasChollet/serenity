@@ -4,10 +4,9 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#include <LibCore/System.h>
 #include <LibTest/TestCase.h>
 #include <errno.h>
-#include <fcntl.h>
-#include <sys/stat.h>
 #include <unistd.h>
 
 TEST_CASE(test_argument_validation)
@@ -52,53 +51,29 @@ static void run_in_other_process(auto&& test_case)
 TEST_CASE(test_failures)
 {
     auto test = []() {
-        auto res = unveil("/etc", "r");
-        if (res < 0)
-            FAIL("unveil read only failed");
+        TRY_OR_FAIL(Core::System::unveil("/etc", "r"));
 
-        res = unveil("/etc", "w");
-        if (res >= 0)
-            FAIL("unveil write permitted after unveil read only");
+        // unveil permitted after unveil read only
+        EXPECT(Core::System::unveil("/etc", "w").is_error());
+        EXPECT(Core::System::unveil("/etc", "x").is_error());
+        EXPECT(Core::System::unveil("/etc", "c").is_error());
 
-        res = unveil("/etc", "x");
-        if (res >= 0)
-            FAIL("unveil execute permitted after unveil read only");
+        TRY_OR_FAIL(Core::System::unveil("/tmp/doesnotexist", "c"));
 
-        res = unveil("/etc", "c");
-        if (res >= 0)
-            FAIL("unveil create permitted after unveil read only");
+        TRY_OR_FAIL(Core::System::unveil("/home", "b"));
 
-        res = unveil("/tmp/doesnotexist", "c");
-        if (res < 0)
-            FAIL("unveil create on non-existent path failed");
+        // unveil permitted after unveil browse only
+        EXPECT(Core::System::unveil("/home", "w").is_error());
+        EXPECT(Core::System::unveil("/home", "x").is_error());
+        EXPECT(Core::System::unveil("/home", "c").is_error());
 
-        res = unveil("/home", "b");
-        if (res < 0)
-            FAIL("unveil browse failed");
+        TRY_OR_FAIL(Core::System::unveil(nullptr, nullptr));
 
-        res = unveil("/home", "w");
-        if (res >= 0)
-            FAIL("unveil write permitted after unveil browse only");
+        // unveil permitted after unveil state locked
+        EXPECT(Core::System::unveil("/bin", "w").is_error());
 
-        res = unveil("/home", "x");
-        if (res >= 0)
-            FAIL("unveil execute permitted after unveil browse only");
-
-        res = unveil("/home", "c");
-        if (res >= 0)
-            FAIL("unveil create permitted after unveil browse only");
-
-        res = unveil(nullptr, nullptr);
-        if (res < 0)
-            FAIL("unveil state lock failed");
-
-        res = unveil("/bin", "w");
-        if (res >= 0)
-            FAIL("unveil permitted after unveil state locked");
-
-        res = access("/bin/id", F_OK);
-        if (res == 0)
-            FAIL("access(..., F_OK) permitted after locked veil without relevant unveil");
+        // access permitted after locked veil without relevant unveil
+        EXPECT(Core::System::access("/bin/id"sv, F_OK).is_error());
     };
 
     run_in_other_process(move(test));
@@ -111,66 +86,20 @@ TEST_CASE(symlinks)
         rmdir("/tmp/foo");
         unlink("/tmp/bar");
 
-        if (mkdir("/tmp/foo", 0755) < 0) {
-            perror("mkdir");
-            FAIL("mkdir");
-        }
+        TRY_OR_FAIL(Core::System::mkdir("/tmp/foo"sv, 0755));
+        TRY_OR_FAIL(Core::System::mkdir("/tmp/foo/1"sv, 0755));
 
-        if (mkdir("/tmp/foo/1", 0755) < 0) {
-            perror("mkdir");
-            FAIL("mkdir");
-        }
+        TRY_OR_FAIL(Core::System::symlink("/tmp/foo"sv, "/tmp/bar"sv));
+        TRY_OR_FAIL(Core::System::unveil("/tmp/foo", "r"));
+        TRY_OR_FAIL(Core::System::unveil(nullptr, nullptr));
 
-        if (symlink("/tmp/foo", "/tmp/bar")) {
-            perror("symlink");
-            FAIL("symlink");
-        }
+        TRY_OR_FAIL(Core::System::access("/tmp/foo/1"sv, R_OK));
+        TRY_OR_FAIL(Core::System::access("/tmp/bar/1"sv, R_OK));
 
-        if (unveil("/tmp", "x") < 0) {
-            perror("unveil");
-            FAIL("unveil");
-        }
+        TRY_OR_FAIL(Core::System::chdir("/tmp"sv));
 
-        if (unveil("/tmp/foo", "r") < 0) {
-            perror("unveil");
-            FAIL("unveil");
-        }
-
-        if (unveil(nullptr, nullptr) < 0) {
-            perror("unveil");
-            FAIL("unveil");
-        }
-
-        int fd = open("/tmp/foo/1", O_RDONLY);
-        if (fd < 0) {
-            perror("open");
-            FAIL("open");
-        }
-        close(fd);
-
-        fd = open("/tmp/bar/1", O_RDONLY);
-        if (fd >= 0) {
-            fprintf(stderr, "FAIL, symlink was not unveiled\n");
-            FAIL("open");
-        }
-
-        if (chdir("/tmp")) {
-            perror("chdir");
-            FAIL("chdir");
-        }
-
-        fd = open("./foo/1", O_RDONLY);
-        if (fd < 0) {
-            perror("open");
-            FAIL("open");
-        }
-        close(fd);
-
-        fd = open("./bar/1", O_RDONLY);
-        if (fd >= 0) {
-            fprintf(stderr, "FAIL, symlink was not unveiled\n");
-            FAIL("open");
-        }
+        TRY_OR_FAIL(Core::System::access("./foo/1"sv, R_OK));
+        TRY_OR_FAIL(Core::System::access("./bar/1"sv, R_OK));
     };
 
     run_in_other_process(move(test));
