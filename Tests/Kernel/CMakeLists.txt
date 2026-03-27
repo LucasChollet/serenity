@@ -17,7 +17,6 @@ set(TEST_SOURCES
     stress-truncate.cpp
     stress-writeread.cpp
     uaf-close-while-blocked-in-read.cpp
-    unveil-symlinks.cpp
 )
 
 if (NOT CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")

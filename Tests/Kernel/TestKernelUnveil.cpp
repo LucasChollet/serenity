@@ -6,6 +6,8 @@
 
 #include <LibTest/TestCase.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 TEST_CASE(test_argument_validation)
@@ -97,6 +99,78 @@ TEST_CASE(test_failures)
         res = access("/bin/id", F_OK);
         if (res == 0)
             FAIL("access(..., F_OK) permitted after locked veil without relevant unveil");
+    };
+
+    run_in_other_process(move(test));
+}
+
+TEST_CASE(symlinks)
+{
+    auto test = []() {
+        rmdir("/tmp/foo/1");
+        rmdir("/tmp/foo");
+        unlink("/tmp/bar");
+
+        if (mkdir("/tmp/foo", 0755) < 0) {
+            perror("mkdir");
+            FAIL("mkdir");
+        }
+
+        if (mkdir("/tmp/foo/1", 0755) < 0) {
+            perror("mkdir");
+            FAIL("mkdir");
+        }
+
+        if (symlink("/tmp/foo", "/tmp/bar")) {
+            perror("symlink");
+            FAIL("symlink");
+        }
+
+        if (unveil("/tmp", "x") < 0) {
+            perror("unveil");
+            FAIL("unveil");
+        }
+
+        if (unveil("/tmp/foo", "r") < 0) {
+            perror("unveil");
+            FAIL("unveil");
+        }
+
+        if (unveil(nullptr, nullptr) < 0) {
+            perror("unveil");
+            FAIL("unveil");
+        }
+
+        int fd = open("/tmp/foo/1", O_RDONLY);
+        if (fd < 0) {
+            perror("open");
+            FAIL("open");
+        }
+        close(fd);
+
+        fd = open("/tmp/bar/1", O_RDONLY);
+        if (fd >= 0) {
+            fprintf(stderr, "FAIL, symlink was not unveiled\n");
+            FAIL("open");
+        }
+
+        if (chdir("/tmp")) {
+            perror("chdir");
+            FAIL("chdir");
+        }
+
+        fd = open("./foo/1", O_RDONLY);
+        if (fd < 0) {
+            perror("open");
+            FAIL("open");
+        }
+        close(fd);
+
+        fd = open("./bar/1", O_RDONLY);
+        if (fd >= 0) {
+            fprintf(stderr, "FAIL, symlink was not unveiled\n");
+            FAIL("open");
+        }
     };
 
     run_in_other_process(move(test));
