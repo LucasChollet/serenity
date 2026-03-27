@@ -9,6 +9,7 @@
 #include <AK/Assertions.h>
 #include <AK/Platform.h>
 #include <LibTest/CrashTest.h>
+#include <LibTest/TestSuite.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -45,7 +46,12 @@ bool Crash::run(RunType run_type)
             if (prctl(PR_SET_DUMPABLE, 0, 0, 0) < 0)
                 perror("prctl(PR_SET_DUMPABLE)");
 #endif
-            exit((int)m_crash_function());
+            auto result = (int)m_crash_function();
+            if (result)
+                exit(result);
+            if (TestSuite::the().current_test_result() == TestResult::Failed)
+                exit((int)Failure::UnexpectedError);
+            exit(0);
         }
 
         int status;
