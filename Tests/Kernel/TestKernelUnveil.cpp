@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#include <LibCore/File.h>
 #include <LibCore/System.h>
 #include <LibTest/TestCase.h>
 #include <errno.h>
@@ -90,17 +91,42 @@ TEST_CASE(symlinks)
         TRY_OR_FAIL(Core::System::mkdir("/tmp/foo/1"sv, 0755));
 
         TRY_OR_FAIL(Core::System::symlink("/tmp/foo"sv, "/tmp/bar"sv));
+        TRY_OR_FAIL(Core::System::unveil("/tmp", "x"));
         TRY_OR_FAIL(Core::System::unveil("/tmp/foo", "r"));
         TRY_OR_FAIL(Core::System::unveil(nullptr, nullptr));
 
         TRY_OR_FAIL(Core::System::access("/tmp/foo/1"sv, R_OK));
-        TRY_OR_FAIL(Core::System::access("/tmp/bar/1"sv, R_OK));
+        EXPECT(Core::System::access("/tmp/bar/1"sv, R_OK).is_error());
 
         TRY_OR_FAIL(Core::System::chdir("/tmp"sv));
 
         TRY_OR_FAIL(Core::System::access("./foo/1"sv, R_OK));
-        TRY_OR_FAIL(Core::System::access("./bar/1"sv, R_OK));
+        EXPECT(Core::System::access("./bar/1"sv, R_OK).is_error());
     };
 
     run_in_other_process(move(test));
 }
+
+// TEST_CASE(symlink_file)
+//{
+//     auto setup = [] () {
+//         unlink("/tmp/a");
+//         unlink("/tmp/b");
+//
+//         {
+//             auto file = TRY_OR_FAIL(Core::File::open("/tmp/a"sv, Core::File::OpenMode::ReadWrite));
+//         }
+//         TRY_OR_FAIL(Core::System::symlink("/tmp/a"sv, "/tmp/b"sv));
+//     };
+//
+//     run_in_other_process([&]() {
+//         setup();
+//
+//         TRY_OR_FAIL(Core::System::unveil("/tmp/a", "r"));
+//         TRY_OR_FAIL(Core::System::unveil("/tmp/b", "r"));
+//         TRY_OR_FAIL(Core::System::unveil(nullptr, nullptr));
+//
+//         TRY_OR_FAIL(Core::System::access("/tmp/a"sv, R_OK));
+//         TRY_OR_FAIL(Core::System::access("/tmp/b"sv, R_OK));
+//     });
+// }
