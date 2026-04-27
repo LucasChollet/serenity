@@ -208,4 +208,16 @@ ErrorOr<void> File::set_blocking(bool enabled)
     return System::ioctl(fd(), FIONBIO, &value);
 }
 
+Coroutine<ErrorOr<Bytes>> File::async_read_some(Bytes bytes)
+{
+    CO_TRY(co_await wait_for_state(Core::Notifier::Type::Read));
+    co_return read_some(bytes);
+}
+
+Coroutine<ErrorOr<size_t>> File::async_write_some(ReadonlyBytes bytes)
+{
+    CO_TRY(co_await wait_for_state(Core::Notifier::Type::Write));
+    co_return write_some(bytes);
+}
+
 }

@@ -7,10 +7,17 @@ set(SOURCES
     DirectoryEntry.cpp
     DirIterator.cpp
     Environment.cpp
+    Event.cpp
+    EventLoop.cpp
+    EventLoopImplementation.cpp
+    EventLoopImplementationUnix.cpp
+    EventReceiver.cpp
     File.cpp
+    Notifier.cpp
     SessionManagement.cpp
     StandardPaths.cpp
     System.cpp
+    ThreadEventQueue.cpp
     Version.cpp
 )
 
@@ -33,14 +40,7 @@ endif()
 set(SOURCES
     DateTime.cpp
     ElapsedTimer.cpp
-    Event.cpp
-    EventLoop.cpp
-    EventLoopImplementation.cpp
-    EventLoopImplementationUnix.cpp
-    EventReceiver.cpp
-    ThreadEventQueue.cpp
     Timer.cpp
-    Notifier.cpp
 )
 
 serenity_lib(LibCoreBasic corebasic)

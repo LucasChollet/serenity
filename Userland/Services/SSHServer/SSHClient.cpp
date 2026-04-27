@@ -12,6 +12,7 @@
 #include <AK/MemoryStream.h>
 #include <AK/Random.h>
 #include <LibCore/Account.h>
+#include <LibCore/EventLoop.h>
 #include <LibCore/Process.h>
 #include <LibCore/Socket.h>
 #include <LibCore/System.h>
@@ -591,13 +592,16 @@ ErrorOr<void> SSHClient::handle_channel_exec(Session& session, GenericMessage& m
     auto stdout_fds = TRY(Core::System::pipe2(O_CLOEXEC));
     auto stderr_fds = TRY(Core::System::pipe2(O_CLOEXEC));
 
-    auto child = TRY(Core::Process::spawn({
+    m_child = TRY(Core::Process::spawn({
         .executable = shell,
         .arguments = args,
         .file_actions = {
             Core::FileAction::DuplicateFile { stdin_fds[0], STDIN_FILENO },
             Core::FileAction::DuplicateFile { stdout_fds[1], STDOUT_FILENO },
             Core::FileAction::DuplicateFile { stderr_fds[1], STDERR_FILENO },
+            Core::FileAction::CloseFile { stdin_fds[0] },
+            Core::FileAction::CloseFile { stdout_fds[1] },
+            Core::FileAction::CloseFile { stderr_fds[1] },
         },
     }));
 
@@ -611,17 +615,61 @@ ErrorOr<void> SSHClient::handle_channel_exec(Session& session, GenericMessage& m
         .m_stderr = TRY(Core::File::adopt_fd(stderr_fds[0], Core::File::OpenMode::Read)),
     };
 
-    auto output = TRY(session.system.get<ExecData>().m_stdout->read_until_eof());
+    Core::EventLoop::current().adopt_coroutine(async_stream_channel_data(session.sender_channel_id));
+    Core::EventLoop::current().adopt_coroutine(async_wait_for_child(session.sender_channel_id));
 
-    auto exited_with_code_0 = TRY(child.wait_for_termination());
+    // FIXME: Make sure to cancel these coroutines if anything goes wrong.
 
-    if (!exited_with_code_0)
-        return Error::from_string_literal("Unable to run command");
-
-    TRY(send_channel_success_message(session));
-    TRY(send_channel_data(session, output));
-    TRY(send_channel_close(session));
     return {};
+}
+
+Coroutine<void> SSHClient::async_stream_channel_data(u32 sender_channel_id)
+{
+    while (true) {
+        auto maybe_error = co_await [&]() -> Coroutine<ErrorOr<IterationDecision>> {
+            auto& session = *CO_TRY(find_session(sender_channel_id));
+
+            auto output_buffer = CO_TRY(ByteBuffer::create_uninitialized(PAGE_SIZE));
+
+            auto output = CO_TRY(co_await session.system.get<ExecData>().m_stdout->async_read_some(output_buffer));
+
+            if (output.is_empty()) {
+                m_done = true;
+                co_return IterationDecision::Break;
+            }
+
+            CO_TRY(send_channel_data(session, output));
+            co_return IterationDecision::Continue;
+        }();
+        if (maybe_error.is_error()) {
+            dbgln("Got an error");
+            // FIXME: Do something.
+        }
+        if (maybe_error.value() == IterationDecision::Break)
+            break;
+    }
+    co_return;
+}
+
+Coroutine<void> SSHClient::async_wait_for_child(u32 sender_channel_id)
+{
+    auto maybe_error = [&]() -> ErrorOr<void> {
+        auto& session = *TRY(find_session(sender_channel_id));
+        Core::EventLoop::current().spin_until([this]() { return m_done; });
+        auto exited_with_code_0 = TRY(m_child->wait_for_termination());
+
+        if (!exited_with_code_0)
+            return Error::from_string_literal("Unable to run command");
+
+        TRY(send_channel_success_message(session));
+        return {};
+    }();
+
+    if (maybe_error.is_error()) {
+        dbgln("Got an error");
+        // FIXME: Do something.
+    }
+    co_return;
 }
 
 ErrorOr<void> SSHClient::send_channel_success_message(Session const& session)

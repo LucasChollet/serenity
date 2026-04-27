@@ -82,9 +82,13 @@ public:
 
     Coroutine<ErrorOr<void>> wait_for_state(Core::Notifier::Type state)
     {
+        dbgln("Wait for state?");
         auto notifier = CO_TRY(Core::Notifier::try_create(m_fd, state));
         co_return co_await GenericAwaiter([&](auto ready) { notifier->on_activation = move(ready); });
     }
+
+    Coroutine<ErrorOr<Bytes>> async_read_some(Bytes);
+    Coroutine<ErrorOr<size_t>> async_write_some(ReadonlyBytes);
 
     template<OneOf<::IPC::File, ::Core::MappedFile> VIP>
     int leak_fd(Badge<VIP>)

@@ -25,6 +25,9 @@ ErrorOr<NonnullRefPtr<TCPServer>> TCPServer::try_create(EventReceiver* parent)
     TRY(Core::System::fcntl(fd, F_SETFD, FD_CLOEXEC));
 #endif
 
+    int opt = 1;
+    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
     return adopt_nonnull_ref_or_enomem(new (nothrow) TCPServer(fd, parent));
 }
 

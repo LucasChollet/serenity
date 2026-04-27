@@ -8,6 +8,7 @@
 
 #include <AK/ByteBuffer.h>
 #include <LibCore/Forward.h>
+#include <LibCore/Process.h>
 #include <LibSSH/KeyExchangeData.h>
 #include <LibSSH/Peer.h>
 #include <LibSSH/Session.h>
@@ -95,6 +96,11 @@ private:
     ErrorOr<void> handle_channel_close(GenericMessage&);
     ErrorOr<void> send_channel_close(Session&);
     ErrorOr<Session*> find_session(u32 sender_channel_id);
+
+    Coroutine<void> async_stream_channel_data(u32 sender_channel_id);
+    Coroutine<void> async_wait_for_child(u32 sender_channel_id);
+    Optional<Core::Process> m_child;
+    bool m_done { false };
 
     State m_state { State::Constructed };
     Core::TCPSocket& m_tcp_socket;
