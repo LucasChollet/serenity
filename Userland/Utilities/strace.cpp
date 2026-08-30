@@ -693,6 +693,23 @@ static void format_close(FormattedSyscallBuilder& builder, int fd)
     builder.add_arguments(fd);
 }
 
+static ErrorOr<void> format_create_thread(FormattedSyscallBuilder& builder, void* entry, Syscall::SC_create_thread_params* params_p)
+{
+    auto params = TRY(copy_from_process(params_p));
+    builder.add_arguments(
+        PointerArgument { entry },
+        params.detach_state,
+        params.schedule_priority,
+        params.guard_page_size,
+        params.reported_guard_page_size,
+        params.stack_size,
+        PointerArgument { params.stack_location },
+        PointerArgument { (void*)params.entry },
+        PointerArgument { params.entry_argument },
+        PointerArgument { params.tls_pointer });
+    return {};
+}
+
 static ErrorOr<void> format_pledge(FormattedSyscallBuilder& builder, Syscall::SC_pledge_params* params_p)
 {
     auto params = TRY(copy_from_process(params_p));
@@ -904,6 +921,9 @@ static ErrorOr<void> format_syscall_early(FormattedSyscallBuilder& builder, Sysc
         break;
     case SC_close:
         format_close(builder, (int)arg1);
+        break;
+    case SC_create_thread:
+        TRY(format_create_thread(builder, (void*)arg1, (Syscall::SC_create_thread_params*)arg2));
         break;
     case SC_exit:
         format_exit(builder, (int)arg1);
