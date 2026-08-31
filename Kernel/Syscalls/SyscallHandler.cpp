@@ -21,6 +21,18 @@ namespace Kernel {
 
 extern bool g_in_system_shutdown;
 
+namespace {
+
+void signal_tracer(Process& process, Thread& current_thread, RegisterState const& regs)
+{
+    if (auto* tracer = process.tracer(); tracer && tracer->is_tracing_syscalls()) {
+        tracer->set_trace_syscalls(false);
+        process.tracer_trap(*current_thread, regs); // this triggers SIGTRAP and stops the thread!
+    }
+}
+
+}
+
 namespace Syscall {
 
 using Handler = auto (Process::*)(FlatPtr, FlatPtr, FlatPtr, FlatPtr) -> ErrorOr<FlatPtr>;
@@ -70,11 +82,8 @@ ErrorOr<FlatPtr> handle(RegisterState& regs, FlatPtr function, FlatPtr arg1, Fla
         // These syscalls need special handling since they never return to the caller.
         // In these cases the process big lock will get released on the exit of the thread.
 
-        if (auto* tracer = process.tracer(); tracer && tracer->is_tracing_syscalls()) {
-            regs.set_return_reg(0);
-            tracer->set_trace_syscalls(false);
-            process.tracer_trap(*current_thread, regs); // this triggers SIGTRAP and stops the thread!
-        }
+        regs.set_return_reg(0);
+        signal_tracer(process, *current_thread, regs);
 
         switch (function) {
         case SC_exit:
@@ -125,10 +134,7 @@ NEVER_INLINE void syscall_handler(TrapFrame* trap)
         return;
     }
 
-    if (auto* tracer = process.tracer(); tracer && tracer->is_tracing_syscalls()) {
-        tracer->set_trace_syscalls(false);
-        process.tracer_trap(*current_thread, regs); // this triggers SIGTRAP and stops the thread!
-    }
+    signal_tracer(process, *current_thread, regs);
 
     current_thread->yield_if_should_be_stopped();
 
@@ -163,10 +169,7 @@ NEVER_INLINE void syscall_handler(TrapFrame* trap)
         regs.set_return_reg(result.value());
     }
 
-    if (auto* tracer = process.tracer(); tracer && tracer->is_tracing_syscalls()) {
-        tracer->set_trace_syscalls(false);
-        process.tracer_trap(*current_thread, regs); // this triggers SIGTRAP and stops the thread!
-    }
+    signal_tracer(process, *current_thread, regs);
 
     current_thread->yield_if_should_be_stopped();
 
