@@ -33,7 +33,7 @@ ErrorOr<FlatPtr> Process::sys$waitid(Userspace<Syscall::SC_waitid_params const*>
         if (!waitee_process)
             return ECHILD;
         bool waitee_is_child = waitee_process->ppid() == Process::current().pid();
-        bool waitee_is_our_tracee = waitee_process->has_tracee_thread(Process::current().pid());
+        bool waitee_is_our_tracee = waitee_process->has_thread_traced_by(*Thread::current());
         if (!waitee_is_child && !waitee_is_our_tracee)
             return ECHILD;
         waitee = waitee_process.release_nonnull();

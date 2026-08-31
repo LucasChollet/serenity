@@ -950,14 +950,22 @@ void Process::finalize()
 
 void Process::unblock_waiters(Thread::WaitBlocker::UnblockFlags flags, u8 signal)
 {
-    RefPtr<Process> waiter_process;
-    if (auto* my_tracer = tracer())
-        waiter_process = Process::from_pid_ignoring_process_lists(my_tracer->tracer_pid());
-    else
-        waiter_process = Process::from_pid_ignoring_process_lists(ppid());
+    bool found_a_waiter = false;
+    for_each_thread([this, flags, signal, &found_a_waiter](Thread const& thread) {
+        if (auto const& tracer = thread.tracer(); tracer) {
+            auto waiter_process = Process::from_pid_ignoring_process_lists(tracer->tracer_pid());
+            if (waiter_process) {
+                waiter_process->m_wait_blocker_set.unblock(*this, flags, signal);
+                found_a_waiter = true;
+            }
+        }
+    });
 
-    if (waiter_process)
-        waiter_process->m_wait_blocker_set.unblock(*this, flags, signal);
+    if (!found_a_waiter) {
+        auto waiter_process = Process::from_pid_ignoring_process_lists(ppid());
+        if (waiter_process)
+            waiter_process->m_wait_blocker_set.unblock(*this, flags, signal);
+    }
 }
 
 void Process::remove_from_secondary_lists()
@@ -1003,11 +1011,25 @@ void Process::die()
         kill_all_threads();
     }
 
+    // FIXME: Let thread store their tracee so we don't have to
+    //        look for every single thread.
     all_instances().with([&](auto const& list) {
         for (auto it = list.begin(); it != list.end();) {
             auto& process = *it;
             ++it;
-            if (process.has_tracee_thread(pid())) {
+
+            bool found_tracee = false;
+
+            process.for_each_thread([this, &found_tracee](Thread& thread) {
+                if (auto const& tracer = thread.tracer();
+                    tracer && tracer->tracer_pid() == pid()) {
+                    thread.stop_tracing();
+                    found_tracee = true;
+                }
+                return IterationDecision::Continue;
+            });
+
+            if (found_tracee) {
                 if constexpr (PROCESS_DEBUG) {
                     process.name().with([&](auto& process_name) {
                         name().with([&](auto& name) {
@@ -1015,7 +1037,6 @@ void Process::die()
                         });
                     });
                 }
-                process.stop_tracing();
                 auto err = process.send_signal(SIGSTOP, this);
                 if (err.is_error()) {
                     process.name().with([&](auto& process_name) {
@@ -1106,24 +1127,6 @@ RefPtr<TTY const> Process::tty() const
 void Process::set_tty(RefPtr<TTY> new_tty)
 {
     with_mutable_protected_data([&](auto& protected_data) { protected_data.tty = move(new_tty); });
-}
-
-ErrorOr<void> Process::start_tracing_from(ProcessID tracer)
-{
-    m_tracer = TRY(ThreadTracer::try_create(tracer));
-    return {};
-}
-
-void Process::stop_tracing()
-{
-    m_tracer = nullptr;
-}
-
-void Process::tracer_trap(Thread& thread, RegisterState const& regs)
-{
-    VERIFY(m_tracer.ptr());
-    m_tracer->set_regs(regs);
-    thread.send_urgent_signal_to_self(SIGTRAP);
 }
 
 bool Process::create_perf_events_buffer_if_needed()

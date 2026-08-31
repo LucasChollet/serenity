@@ -299,9 +299,10 @@ public:
         // FIXME: Figure out whether this can be Thread.
         mutable RecursiveSpinlock<LockRank::None> m_lock {};
 
+        NonnullRefPtr<Thread> const m_thread;
+
     private:
         BlockerSet* m_blocker_set { nullptr };
-        NonnullRefPtr<Thread> const m_thread;
         u8 m_was_interrupted_by_signal { 0 };
         bool m_is_blocking { false };
         bool m_was_interrupted_by_death { false };
@@ -1080,6 +1081,13 @@ public:
     Blocker const* blocker() const { return m_blocker; }
     Kernel::Mutex const* blocking_mutex() const { return m_blocking_mutex; }
 
+    OwnPtr<ThreadTracer> const& tracer() const { return m_tracer; }
+    bool is_traced() const { return m_tracer; }
+
+    ErrorOr<void> start_tracing_from(ProcessID tracer, ThreadID);
+    void stop_tracing();
+    void tracer_trap(RegisterState const&);
+
 #if LOCK_DEBUG
     struct HoldingLockInfo {
         Mutex* lock;
@@ -1213,6 +1221,8 @@ private:
     bool m_is_joinable { true };
     bool m_handling_page_fault { false };
     ExecutionMode m_previous_mode { ExecutionMode::Kernel }; // We always start out in kernel mode
+
+    OwnPtr<ThreadTracer> m_tracer;
 
     unsigned m_syscall_count { 0 };
     unsigned m_inode_faults { 0 };

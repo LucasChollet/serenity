@@ -23,11 +23,11 @@ extern bool g_in_system_shutdown;
 
 namespace {
 
-void signal_tracer(Process& process, Thread& current_thread, RegisterState const& regs)
+void signal_tracer(Thread& current_thread, RegisterState const& regs)
 {
-    if (auto* tracer = process.tracer(); tracer && tracer->is_tracing_syscalls()) {
+    if (auto const& tracer = current_thread.tracer(); tracer && tracer->is_tracing_syscalls()) {
         tracer->set_trace_syscalls(false);
-        process.tracer_trap(*current_thread, regs); // this triggers SIGTRAP and stops the thread!
+        current_thread.tracer_trap(regs); // this triggers SIGTRAP and stops the thread!
     }
 }
 
@@ -83,7 +83,7 @@ ErrorOr<FlatPtr> handle(RegisterState& regs, FlatPtr function, FlatPtr arg1, Fla
         // In these cases the process big lock will get released on the exit of the thread.
 
         regs.set_return_reg(0);
-        signal_tracer(process, *current_thread, regs);
+        signal_tracer(*current_thread, regs);
 
         switch (function) {
         case SC_exit:
@@ -134,7 +134,7 @@ NEVER_INLINE void syscall_handler(TrapFrame* trap)
         return;
     }
 
-    signal_tracer(process, *current_thread, regs);
+    signal_tracer(*current_thread, regs);
 
     current_thread->yield_if_should_be_stopped();
 
@@ -169,7 +169,7 @@ NEVER_INLINE void syscall_handler(TrapFrame* trap)
         regs.set_return_reg(result.value());
     }
 
-    signal_tracer(process, *current_thread, regs);
+    signal_tracer(*current_thread, regs);
 
     current_thread->yield_if_should_be_stopped();
 

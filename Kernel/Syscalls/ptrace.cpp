@@ -20,7 +20,7 @@ namespace Kernel {
 static ErrorOr<FlatPtr> handle_ptrace(Kernel::Syscall::SC_ptrace_params const& params, Process& caller)
 {
     if (params.request == PT_TRACE_ME) {
-        if (Process::current().tracer())
+        if (Thread::current()->tracer())
             return EBUSY;
 
         caller.set_wait_for_tracer_at_next_execve(true);
@@ -45,22 +45,21 @@ static ErrorOr<FlatPtr> handle_ptrace(Kernel::Syscall::SC_ptrace_params const& p
     if (!peer->process().is_dumpable())
         return EACCES;
 
-    auto& peer_process = peer->process();
+    auto const& tracer = peer->tracer();
+
     if (params.request == PT_ATTACH) {
-        if (peer_process.tracer()) {
+        if (tracer)
             return EBUSY;
-        }
-        TRY(peer_process.start_tracing_from(caller.pid()));
+
+        TRY(peer->start_tracing_from(caller.pid(), Thread::current()->tid()));
         SpinlockLocker lock(peer->get_lock());
-        if (peer->state() == Thread::State::Stopped) {
-            peer_process.tracer()->set_regs(peer->get_register_dump_from_stack());
-        } else {
+        if (peer->state() == Thread::State::Stopped)
+            tracer->set_regs(peer->get_register_dump_from_stack());
+        else
             peer->send_signal(SIGSTOP, &caller);
-        }
+
         return 0;
     }
-
-    auto* tracer = peer_process.tracer();
 
     if (!tracer)
         return EPERM;
@@ -79,7 +78,7 @@ static ErrorOr<FlatPtr> handle_ptrace(Kernel::Syscall::SC_ptrace_params const& p
         break;
 
     case PT_DETACH:
-        peer_process.stop_tracing();
+        peer->stop_tracing();
         peer->send_signal(SIGCONT, &caller);
         break;
 
@@ -193,14 +192,34 @@ ErrorOr<FlatPtr> Process::sys$ptrace(Userspace<Syscall::SC_ptrace_params const*>
     return handle_ptrace(params, *this);
 }
 
-/**
- * "Does this process have a thread that is currently being traced by the provided process?"
- */
-bool Process::has_tracee_thread(ProcessID tracer_pid)
+bool Process::has_thread_traced_by(ProcessID maybe_tracer)
 {
-    if (auto const* tracer = this->tracer())
-        return tracer->tracer_pid() == tracer_pid;
-    return false;
+    bool has_tracee_thread = false;
+    for_each_thread([&has_tracee_thread, &maybe_tracer](Thread const& thread) {
+        if (auto const& tracer = thread.tracer();
+            tracer && tracer->tracer_pid() == maybe_tracer) {
+            has_tracee_thread = true;
+            return IterationDecision::Break;
+        }
+        return IterationDecision::Continue;
+    });
+
+    return has_tracee_thread;
+}
+
+bool Process::has_thread_traced_by(Thread const& maybe_tracer)
+{
+    bool has_tracee_thread = false;
+    for_each_thread([&has_tracee_thread, &maybe_tracer](Thread const& thread) {
+        if (auto const& tracer = thread.tracer();
+            tracer && tracer->tracer_tid() == maybe_tracer.tid()) {
+            has_tracee_thread = true;
+            return IterationDecision::Break;
+        }
+        return IterationDecision::Continue;
+    });
+
+    return has_tracee_thread;
 }
 
 ErrorOr<FlatPtr> Process::peek_user_data(Userspace<FlatPtr const*> address)

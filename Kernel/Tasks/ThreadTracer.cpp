@@ -9,8 +9,9 @@
 
 namespace Kernel {
 
-ThreadTracer::ThreadTracer(ProcessID tracer_pid)
+ThreadTracer::ThreadTracer(ProcessID tracer_pid, ThreadID tracer_tid)
     : m_tracer_pid(tracer_pid)
+    , m_tracer_tid(tracer_tid)
 {
 }
 

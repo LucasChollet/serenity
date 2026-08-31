@@ -225,7 +225,6 @@ void debug_handler(TrapFrame* trap)
     clac();
     auto& regs = *trap->regs;
     auto current_thread = Thread::current();
-    auto& process = current_thread->process();
     if ((regs.cs & 3) == 0) {
         PANIC("Debug exception in ring 0");
     }
@@ -234,7 +233,7 @@ void debug_handler(TrapFrame* trap)
     auto should_trap_mask = (1 << REASON_SINGLESTEP) | 0b1111;
     if ((debug_status & should_trap_mask) == 0)
         return;
-    if (auto tracer = process.tracer()) {
+    if (auto const& tracer = current_thread->tracer()) {
         tracer->set_regs(regs);
     }
     current_thread->send_urgent_signal_to_self(SIGTRAP);
@@ -247,11 +246,10 @@ void breakpoint_handler(TrapFrame* trap)
     clac();
     auto& regs = *trap->regs;
     auto current_thread = Thread::current();
-    auto& process = current_thread->process();
     if ((regs.cs & 3) == 0) {
         PANIC("Breakpoint trap in ring 0");
     }
-    if (auto tracer = process.tracer()) {
+    if (auto const& tracer = current_thread->tracer()) {
         tracer->set_regs(regs);
     }
     current_thread->send_urgent_signal_to_self(SIGTRAP);

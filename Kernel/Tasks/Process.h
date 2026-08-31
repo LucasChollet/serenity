@@ -342,12 +342,6 @@ public:
     void die();
     void finalize();
 
-    ThreadTracer* tracer() { return m_tracer.ptr(); }
-    bool is_traced() const { return !!m_tracer; }
-    ErrorOr<void> start_tracing_from(ProcessID tracer);
-    void stop_tracing();
-    void tracer_trap(Thread&, RegisterState const&);
-
     ErrorOr<FlatPtr> sys$yield();
     ErrorOr<FlatPtr> sys$sync();
     ErrorOr<FlatPtr> sys$beep(int tone);
@@ -742,7 +736,8 @@ private:
     static ErrorOr<NonnullOwnPtr<KString>> get_syscall_path_argument(Userspace<char const*> user_path, size_t path_length);
     static ErrorOr<NonnullOwnPtr<KString>> get_syscall_path_argument(Syscall::StringArgument const&);
 
-    bool has_tracee_thread(ProcessID tracer_pid);
+    bool has_thread_traced_by(ProcessID);
+    bool has_thread_traced_by(Thread const&);
 
     void clear_signal_handlers_for_exec();
     void clear_futex_queues_on_exec();
@@ -797,8 +792,6 @@ private:
     AtomicEdgeAction<u32> m_protected_data_refs;
     void protect_data();
     void unprotect_data();
-
-    OwnPtr<ThreadTracer> m_tracer;
 
 public:
     class OpenFileDescriptionAndFlags {

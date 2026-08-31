@@ -930,7 +930,7 @@ DispatchSignalResult Thread::dispatch_signal(u8 signal)
     m_have_any_unmasked_pending_signals.store((m_pending_signals & ~m_signal_mask) != 0, AK::memory_order_release);
 
     auto& process = this->process();
-    auto* tracer = process.tracer();
+    auto const& tracer = this->tracer();
     if (signal == SIGSTOP || (tracer && default_signal_action(signal) == DefaultSignalAction::DumpCore)) {
         dbgln_if(SIGNAL_DEBUG, "Signal {} stopping this thread", signal);
         if (tracer)
@@ -1427,6 +1427,24 @@ void Thread::set_name(StringView name)
     m_name.with([name](auto& thread_name) {
         thread_name.store_characters(name);
     });
+}
+
+ErrorOr<void> Thread::start_tracing_from(ProcessID tracer_pid, ThreadID tracer_tid)
+{
+    m_tracer = TRY(ThreadTracer::try_create(tracer_pid, tracer_tid));
+    return {};
+}
+
+void Thread::stop_tracing()
+{
+    m_tracer = nullptr;
+}
+
+void Thread::tracer_trap(RegisterState const& regs)
+{
+    VERIFY(m_tracer.ptr());
+    m_tracer->set_regs(regs);
+    send_urgent_signal_to_self(SIGTRAP);
 }
 
 }

@@ -771,13 +771,13 @@ bool Thread::WaitBlocker::unblock(Process& process, UnblockFlags flags, u8 signa
     case UnblockFlags::Stopped:
         if (!(m_wait_options & WSTOPPED))
             return false;
-        if (!(m_wait_options & WUNTRACED) && !process.is_traced())
+        if (!(m_wait_options & WUNTRACED) && !process.has_thread_traced_by(*m_thread))
             return false;
         break;
     case UnblockFlags::Continued:
         if (!(m_wait_options & WCONTINUED))
             return false;
-        if (!(m_wait_options & WUNTRACED) && !process.is_traced())
+        if (!(m_wait_options & WUNTRACED) && !process.has_thread_traced_by(*m_thread))
             return false;
         break;
     case UnblockFlags::Disowned:
