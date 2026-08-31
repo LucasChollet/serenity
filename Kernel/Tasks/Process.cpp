@@ -88,34 +88,6 @@ ErrorOr<void> Process::for_each_in_same_process_list(Function<ErrorOr<void>(Proc
     });
 }
 
-ErrorOr<void> Process::for_each_child_in_same_process_list(Function<ErrorOr<void>(Process&)> callback)
-{
-    ProcessID my_pid = pid();
-    return m_scoped_process_list.with([&](auto const& list_ptr) -> ErrorOr<void> {
-        ErrorOr<void> result {};
-        if (list_ptr) {
-            list_ptr->attached_processes().with([&](auto const& list) {
-                for (auto& process : list) {
-                    if (process.ppid() == my_pid || process.has_tracee_thread(pid()))
-                        result = callback(process);
-                    if (result.is_error())
-                        break;
-                }
-            });
-            return result;
-        }
-        all_instances().with([&](auto const& list) {
-            for (auto& process : list) {
-                if (process.ppid() == my_pid || process.has_tracee_thread(pid()))
-                    result = callback(process);
-                if (result.is_error())
-                    break;
-            }
-        });
-        return result;
-    });
-}
-
 ErrorOr<void> Process::for_each_in_pgrp_in_same_process_list(ProcessGroupID pgid, Function<ErrorOr<void>(Process&)> callback)
 {
     return m_scoped_process_list.with([&](auto const& list_ptr) -> ErrorOr<void> {

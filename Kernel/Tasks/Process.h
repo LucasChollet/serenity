@@ -323,7 +323,6 @@ public:
 
     static ErrorOr<void> for_each_in_same_process_list(Function<ErrorOr<void>(Process&)>);
     ErrorOr<void> for_each_in_pgrp_in_same_process_list(ProcessGroupID, Function<ErrorOr<void>(Process&)>);
-    ErrorOr<void> for_each_child_in_same_process_list(Function<ErrorOr<void>(Process&)>);
 
     template<IteratorFunction<Thread&> Callback>
     IterationDecision for_each_thread(Callback);
