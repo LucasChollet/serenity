@@ -1,9 +1,7 @@
 name: Nightly CI
 
 on:
-  # Automatically run at the end of every day.
-  schedule:
-    - cron: '0 0 * * *'
+  push:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || format('{0}-{1}', github.ref, github.run_number) }}
@@ -24,7 +22,7 @@ jobs:
       coverage: 'ON'
 
   LagomGCC:
-    if: always() && github.repository == 'SerenityOS/serenity' && github.ref == 'refs/heads/master'
+    if: always()
 
     strategy:
       fail-fast: false
