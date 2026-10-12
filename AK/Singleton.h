@@ -55,7 +55,13 @@ class Singleton {
 
 public:
     Singleton() = default;
-
+#if !defined(KERNEL) && !defined(_DYNAMIC_LOADER)
+    ~Singleton()
+    {
+        if (is_initialized())
+            delete ptr();
+    }
+#endif
     template<bool allow_create = true>
     static T* get(Atomic<T*>& obj_var)
     {
