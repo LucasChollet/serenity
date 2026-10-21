@@ -9,6 +9,7 @@
 #include <AK/StringView.h>
 #include <Kernel/FileSystem/FileSystem.h>
 #include <Kernel/FileSystem/Inode.h>
+#include <Kernel/FileSystem/InodeWithCachedMetadata.h>
 #include <Kernel/FileSystem/VirtualFileSystem.h>
 #include <Kernel/Interrupts/InterruptDisabler.h>
 #include <Kernel/Memory/MemoryManager.h>
@@ -46,7 +47,7 @@ FileSystem::DirectoryEntryView::DirectoryEntryView(StringView n, InodeIdentifier
 
 void FileSystem::sync()
 {
-    Inode::sync_all();
+    InodeWithCachedMetadata::sync_all();
     VirtualFileSystem::sync_filesystems();
 }
 

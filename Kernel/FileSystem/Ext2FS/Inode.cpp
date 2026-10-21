@@ -387,7 +387,7 @@ ErrorOr<void> Ext2FSInode::free_all_blocks()
 }
 
 Ext2FSInode::Ext2FSInode(Ext2FS& fs, InodeIndex index)
-    : Inode(fs, index)
+    : InodeWithCachedMetadata(fs, index)
     , m_block_view(*this)
 {
 }

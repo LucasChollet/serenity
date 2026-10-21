@@ -12,7 +12,7 @@
 #include <Kernel/FileSystem/FATFS/Definitions.h>
 #include <Kernel/FileSystem/FATFS/FileSystem.h>
 #include <Kernel/FileSystem/FATFS/SFNUtilities.h>
-#include <Kernel/FileSystem/Inode.h>
+#include <Kernel/FileSystem/InodeWithCachedMetadata.h>
 #include <Kernel/Library/KBuffer.h>
 #include <Kernel/Library/KString.h>
 
@@ -23,7 +23,7 @@ struct FATEntryLocation {
     u32 entry;
 };
 
-class FATInode final : public Inode {
+class FATInode final : public InodeWithCachedMetadata {
     friend FATFS;
 
 public:

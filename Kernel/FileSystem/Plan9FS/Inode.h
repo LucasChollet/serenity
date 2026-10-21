@@ -24,7 +24,6 @@ public:
 
     // ^Inode
     virtual InodeMetadata metadata() const override;
-    virtual ErrorOr<void> flush_metadata() override;
     virtual ErrorOr<void> traverse_as_directory(Function<ErrorOr<void>(FileSystem::DirectoryEntryView const&)>) const override;
     virtual ErrorOr<NonnullRefPtr<Inode>> lookup(StringView name) override;
     virtual ErrorOr<NonnullRefPtr<Inode>> create_child(StringView name, mode_t, dev_t, UserID, GroupID) override;

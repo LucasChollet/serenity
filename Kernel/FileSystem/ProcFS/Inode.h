@@ -52,7 +52,6 @@ private:
     virtual ErrorOr<void> truncate_locked(u64) override { return EROFS; }
 
     // ^Inode (Silent ignore handling)
-    virtual ErrorOr<void> flush_metadata() override { return {}; }
     virtual ErrorOr<void> update_timestamps(Optional<UnixDateTime>, Optional<UnixDateTime>, Optional<UnixDateTime>) override { return {}; }
 
     // ^Inode

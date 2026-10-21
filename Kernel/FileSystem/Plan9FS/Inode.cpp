@@ -168,12 +168,6 @@ InodeMetadata Plan9FSInode::metadata() const
     return metadata;
 }
 
-ErrorOr<void> Plan9FSInode::flush_metadata()
-{
-    // Do nothing.
-    return {};
-}
-
 ErrorOr<void> Plan9FSInode::traverse_as_directory(Function<ErrorOr<void>(FileSystem::DirectoryEntryView const&)> callback) const
 {
     // TODO: Should we synthesize "." and ".." here?

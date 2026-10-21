@@ -100,11 +100,6 @@ ErrorOr<NonnullRefPtr<Inode>> ISO9660Inode::lookup(StringView name)
     return inode.release_nonnull();
 }
 
-ErrorOr<void> ISO9660Inode::flush_metadata()
-{
-    return {};
-}
-
 ErrorOr<size_t> ISO9660Inode::write_bytes_locked(off_t, size_t, UserOrKernelBuffer const&, OpenFileDescription*)
 {
     return EROFS;

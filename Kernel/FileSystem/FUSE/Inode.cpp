@@ -245,11 +245,6 @@ ErrorOr<NonnullRefPtr<Inode>> FUSEInode::lookup(StringView name)
     return TRY(adopt_nonnull_ref_or_enomem(new (nothrow) FUSEInode(fs(), entry->nodeid)));
 }
 
-ErrorOr<void> FUSEInode::flush_metadata()
-{
-    return {};
-}
-
 ErrorOr<void> FUSEInode::add_child(Inode& inode, StringView name, mode_t mode)
 {
     dev_t rdev = encoded_device(inode.metadata().major_device, inode.metadata().minor_device);

@@ -85,11 +85,6 @@ ErrorOr<NonnullRefPtr<Inode>> DevPtsFSInode::lookup(StringView name)
     return fs().get_inode({ fsid(), pty_index_to_inode_index(pty_index.value()) });
 }
 
-ErrorOr<void> DevPtsFSInode::flush_metadata()
-{
-    return {};
-}
-
 ErrorOr<void> DevPtsFSInode::add_child(Inode&, StringView, mode_t)
 {
     return EROFS;

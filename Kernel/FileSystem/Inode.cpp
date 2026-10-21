@@ -8,6 +8,7 @@
 
 #include <AK/Singleton.h>
 #include <AK/StringView.h>
+#include <AK/TypeCasts.h>
 #include <Kernel/API/InodeWatcherEvent.h>
 #include <Kernel/FileSystem/Custody.h>
 #include <Kernel/FileSystem/Inode.h>
@@ -21,37 +22,6 @@
 #include <Kernel/Tasks/Process.h>
 
 namespace Kernel {
-
-static Singleton<SpinlockProtected<Inode::AllInstancesList, LockRank::None>> s_all_instances;
-
-SpinlockProtected<Inode::AllInstancesList, LockRank::None>& Inode::all_instances()
-{
-    return s_all_instances;
-}
-
-void Inode::sync_all()
-{
-    Vector<NonnullRefPtr<Inode>, 32> inodes;
-    Inode::all_instances().with([&](auto& all_inodes) {
-        for (auto& inode : all_inodes) {
-            if (inode.is_metadata_dirty())
-                inodes.try_append(inode).release_value_but_fixme_should_propagate_errors();
-        }
-    });
-
-    for (auto& inode : inodes) {
-        (void)inode->flush_metadata();
-    }
-}
-
-void Inode::sync()
-{
-    (void)flush_metadata();
-    auto result = fs().flush_writes();
-    if (result.is_error()) {
-        // TODO: Figure out how to propagate error to a higher function.
-    }
-}
 
 ErrorOr<NonnullRefPtr<Custody>> Inode::resolve_as_link(VFSRootContext const& vfs_root_context, Credentials const& credentials, CustodyBase const& base, RefPtr<Custody>* out_parent, int options, int symlink_recursion_level) const
 {
@@ -72,7 +42,6 @@ Inode::Inode(FileSystem& fs, InodeIndex index)
     : m_file_system(fs)
     , m_index(index)
 {
-    Inode::all_instances().with([&](auto& all_inodes) { all_inodes.append(*this); });
 }
 
 Inode::~Inode()
@@ -80,13 +49,6 @@ Inode::~Inode()
     m_watchers.for_each([&](auto& watcher) {
         watcher->unregister_by_inode({}, identifier());
     });
-}
-
-void Inode::will_be_destroyed()
-{
-    MutexLocker locker(m_inode_lock);
-    if (m_metadata_dirty)
-        (void)flush_metadata();
 }
 
 ErrorOr<void> Inode::truncate(u64 size)
@@ -201,26 +163,6 @@ ErrorOr<NonnullRefPtr<FIFO>> Inode::fifo()
         m_fifo = TRY(FIFO::try_create(metadata().uid));
 
     return NonnullRefPtr { *m_fifo };
-}
-
-void Inode::set_metadata_dirty(bool metadata_dirty)
-{
-    MutexLocker locker(m_inode_lock);
-
-    if (metadata_dirty) {
-        // Sanity check.
-        VERIFY(!fs().is_readonly());
-    }
-
-    if (m_metadata_dirty == metadata_dirty)
-        return;
-
-    m_metadata_dirty = metadata_dirty;
-    if (m_metadata_dirty) {
-        // FIXME: We shouldn't call did_modify_metadata() here, this is only done to preserve the old behavior
-        //        Ext2FS and FatFS. These filesystems should call did_modify_metadata() themselves.
-        did_modify_metadata();
-    }
 }
 
 void Inode::did_add_child(InodeIdentifier, StringView name)

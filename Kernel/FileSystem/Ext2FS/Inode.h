@@ -11,12 +11,12 @@
 #include <Kernel/FileSystem/Ext2FS/Definitions.h>
 #include <Kernel/FileSystem/Ext2FS/DirectoryEntry.h>
 #include <Kernel/FileSystem/Ext2FS/FileSystem.h>
-#include <Kernel/FileSystem/Inode.h>
+#include <Kernel/FileSystem/InodeWithCachedMetadata.h>
 #include <Kernel/UnixTypes.h>
 
 namespace Kernel {
 
-class Ext2FSInode final : public Inode {
+class Ext2FSInode final : public InodeWithCachedMetadata {
     friend class Ext2FS;
     friend class Ext2FSBlockView;
 

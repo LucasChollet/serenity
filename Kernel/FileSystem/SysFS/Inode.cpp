@@ -65,11 +65,6 @@ InodeMetadata SysFSInode::metadata() const
     return metadata;
 }
 
-ErrorOr<void> SysFSInode::flush_metadata()
-{
-    return {};
-}
-
 ErrorOr<size_t> SysFSInode::write_bytes_locked(off_t offset, size_t count, UserOrKernelBuffer const& buffer, OpenFileDescription* fd)
 {
     return m_associated_component->write_bytes(offset, count, buffer, fd);

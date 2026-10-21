@@ -20,7 +20,7 @@ ErrorOr<NonnullRefPtr<FATInode>> FATInode::create(FATFS& fs, FATEntry entry, FAT
 }
 
 FATInode::FATInode(FATFS& fs, FATEntry entry, FATEntryLocation inode_metadata_location, NonnullOwnPtr<KString> filename)
-    : Inode(fs, inode_metadata_location.block.value() * (fs.logical_block_size() / sizeof(FATEntry)) + inode_metadata_location.entry)
+    : InodeWithCachedMetadata(fs, inode_metadata_location.block.value() * (fs.logical_block_size() / sizeof(FATEntry)) + inode_metadata_location.entry)
     , m_entry(entry)
     , m_inode_metadata_location(inode_metadata_location)
     , m_filename(move(filename))

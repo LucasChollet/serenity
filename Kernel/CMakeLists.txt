@@ -160,6 +160,7 @@ set(KERNEL_SOURCES
     FileSystem/FUSE/FileSystem.cpp
     FileSystem/FUSE/Inode.cpp
     FileSystem/Inode.cpp
+    FileSystem/InodeWithCachedMetadata.cpp
     FileSystem/InodeFile.cpp
     FileSystem/InodeMetadata.cpp
     FileSystem/InodeWatcher.cpp

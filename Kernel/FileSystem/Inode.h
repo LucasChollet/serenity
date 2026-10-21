@@ -29,15 +29,14 @@ enum class ShouldBlock {
     Yes = 1
 };
 
-class Inode : public ListedRefCounted<Inode, LockType::Spinlock>
+class Inode : public AtomicRefCounted<Inode>
     , public LockWeakable<Inode> {
     friend class FileSystem;
     friend class InodeFile;
 
 public:
+    virtual bool unref() const { return AtomicRefCounted::unref(); }
     virtual ~Inode();
-
-    virtual void remove_from_secondary_lists() { }
 
     FileSystem& fs() { return m_file_system; }
     FileSystem const& fs() const { return m_file_system; }
@@ -77,21 +76,17 @@ public:
     bool bind_socket(LocalSocket&);
     bool unbind_socket();
 
-    bool is_metadata_dirty() const { return m_metadata_dirty; }
-
     virtual ErrorOr<void> update_timestamps(Optional<UnixDateTime> atime, Optional<UnixDateTime> ctime, Optional<UnixDateTime> mtime);
     virtual ErrorOr<void> increment_link_count();
     virtual ErrorOr<void> decrement_link_count();
 
-    virtual ErrorOr<void> flush_metadata() = 0;
-
-    void will_be_destroyed();
+    virtual void will_be_destroyed() { }
 
     ErrorOr<void> set_shared_vmobject(Memory::SharedInodeVMObject&);
     LockRefPtr<Memory::SharedInodeVMObject> shared_vmobject() const;
 
-    static void sync_all();
-    void sync();
+    // This only useful for InodeWithCachedMetadata.
+    virtual void sync() { }
 
     bool has_watchers() const;
 
@@ -108,7 +103,6 @@ public:
 
 protected:
     Inode(FileSystem&, InodeIndex);
-    void set_metadata_dirty(bool);
     ErrorOr<void> prepare_to_write_data();
 
     void did_add_child(InodeIdentifier child_id, StringView);
@@ -142,16 +136,10 @@ private:
     LockWeakPtr<Memory::SharedInodeVMObject> m_shared_vmobject;
     LockWeakPtr<LocalSocket> m_bound_socket;
     SpinlockProtected<HashTable<InodeWatcher*>, LockRank::None> m_watchers {};
-    bool m_metadata_dirty { false };
     RefPtr<FIFO> m_fifo;
-    IntrusiveListNode<Inode> m_inode_list_node;
 
     Thread::FlockBlockerSet m_flock_blocker_set;
     SpinlockProtected<Vector<Flock>, LockRank::None> m_flocks {};
-
-public:
-    using AllInstancesList = IntrusiveList<&Inode::m_inode_list_node>;
-    static SpinlockProtected<Inode::AllInstancesList, LockRank::None>& all_instances();
 };
 
 }
