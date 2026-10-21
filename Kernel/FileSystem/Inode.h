@@ -113,6 +113,7 @@ protected:
 
     void did_add_child(InodeIdentifier child_id, StringView);
     void did_remove_child(InodeIdentifier child_id, StringView);
+    void did_modify_metadata();
     void did_modify_contents();
     void did_delete_self();
 

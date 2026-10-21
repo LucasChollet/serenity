@@ -217,11 +217,9 @@ void Inode::set_metadata_dirty(bool metadata_dirty)
 
     m_metadata_dirty = metadata_dirty;
     if (m_metadata_dirty) {
-        // FIXME: Maybe we should hook into modification events somewhere else, I'm not sure where.
-        //        We don't always end up on this particular code path, for instance when writing to an ext2fs file.
-        m_watchers.for_each([&](auto& watcher) {
-            watcher->notify_inode_event({}, identifier(), InodeWatcherEvent::Type::MetadataModified);
-        });
+        // FIXME: We shouldn't call did_modify_metadata() here, this is only done to preserve the old behavior
+        //        Ext2FS and FatFS. These filesystems should call did_modify_metadata() themselves.
+        did_modify_metadata();
     }
 }
 
@@ -241,6 +239,13 @@ void Inode::did_remove_child(InodeIdentifier, StringView name)
 
     m_watchers.for_each([&](auto& watcher) {
         watcher->notify_inode_event({}, identifier(), InodeWatcherEvent::Type::ChildDeleted, name);
+    });
+}
+
+void Inode::did_modify_metadata()
+{
+    m_watchers.for_each([&](auto& watcher) {
+        watcher->notify_inode_event({}, identifier(), InodeWatcherEvent::Type::MetadataModified);
     });
 }
 

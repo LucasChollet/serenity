@@ -145,7 +145,7 @@ ErrorOr<size_t> RAMFSInode::write_bytes_locked(off_t offset, size_t size, UserOr
 
     if (new_size > old_size) {
         m_metadata.size = new_size;
-        set_metadata_dirty(true);
+        did_modify_metadata();
     }
     did_modify_contents();
     return nwritten;
@@ -244,23 +244,12 @@ RAMFSInode::Child* RAMFSInode::find_child_by_name(StringView name)
     return nullptr;
 }
 
-ErrorOr<void> RAMFSInode::flush_metadata()
-{
-    // We don't really have any metadata that could become dirty.
-    // The only reason we even call set_metadata_dirty() is
-    // to let the watchers know we have updates. Once that is
-    // switched to a different mechanism, we can stop ever marking
-    // our metadata as dirty at all.
-    set_metadata_dirty(false);
-    return {};
-}
-
 ErrorOr<void> RAMFSInode::chmod(mode_t mode)
 {
     MutexLocker locker(m_inode_lock);
 
     m_metadata.mode = mode;
-    set_metadata_dirty(true);
+    did_modify_metadata();
     return {};
 }
 
@@ -270,7 +259,7 @@ ErrorOr<void> RAMFSInode::chown(UserID uid, GroupID gid)
 
     m_metadata.uid = uid;
     m_metadata.gid = gid;
-    set_metadata_dirty(true);
+    did_modify_metadata();
     return {};
 }
 
@@ -359,7 +348,7 @@ ErrorOr<void> RAMFSInode::truncate_locked(u64 size)
         memset(mapping_region->vaddr().offset(size % DataBlock::block_size).as_ptr(), 0, DataBlock::block_size - (size % DataBlock::block_size));
     }
     m_metadata.size = size;
-    set_metadata_dirty(true);
+    did_modify_metadata();
     did_modify_contents();
     return {};
 }
@@ -374,7 +363,7 @@ ErrorOr<void> RAMFSInode::update_timestamps(Optional<UnixDateTime> atime, Option
         m_metadata.ctime = ctime.value();
     if (mtime.has_value())
         m_metadata.mtime = mtime.value();
-    set_metadata_dirty(true);
+    did_modify_metadata();
     return {};
 }
 
