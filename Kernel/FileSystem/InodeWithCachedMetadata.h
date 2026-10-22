@@ -27,6 +27,8 @@ public:
 protected:
     InodeWithCachedMetadata(FileSystem&, InodeIndex);
 
+    virtual void did_modify_metadata() override;
+
 private:
     bool m_metadata_dirty { false };
 

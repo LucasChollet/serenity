@@ -891,7 +891,7 @@ ErrorOr<void> FATInode::resize(u64 size, Optional<u64> clear_from, Optional<u64>
     }
 
     m_entry.file_size = size;
-    set_metadata_dirty(true);
+    did_modify_metadata();
 
     if (clear_from.has_value() && to_clear.has_value())
         TRY(zero_data(*clear_from, *to_clear));

@@ -567,7 +567,7 @@ ErrorOr<void> Ext2FSInode::resize(u64 new_size)
     if (Kernel::is_regular_file(m_raw_inode.i_mode))
         m_raw_inode.i_dir_acl = new_size >> 32;
 
-    set_metadata_dirty(true);
+    did_modify_metadata();
     return {};
 }
 
@@ -897,7 +897,7 @@ ErrorOr<void> Ext2FSInode::update_timestamps(Optional<UnixDateTime> atime, Optio
     maybe_encode_time(ctime, m_raw_inode.i_ctime, m_raw_inode.i_ctime_extra);
     maybe_encode_time(mtime, m_raw_inode.i_mtime, m_raw_inode.i_mtime_extra);
 
-    set_metadata_dirty(true);
+    did_modify_metadata();
     return {};
 }
 
@@ -910,7 +910,7 @@ ErrorOr<void> Ext2FSInode::increment_link_count()
     if (m_raw_inode.i_links_count == max_link_count)
         return EMLINK;
     ++m_raw_inode.i_links_count;
-    set_metadata_dirty(true);
+    did_modify_metadata();
     return {};
 }
 
@@ -922,7 +922,7 @@ ErrorOr<void> Ext2FSInode::decrement_link_count()
     VERIFY(m_raw_inode.i_links_count);
 
     --m_raw_inode.i_links_count;
-    set_metadata_dirty(true);
+    did_modify_metadata();
     if (m_raw_inode.i_links_count == 0)
         did_delete_self();
 
@@ -938,7 +938,7 @@ ErrorOr<void> Ext2FSInode::chmod(mode_t mode)
     if (m_raw_inode.i_mode == mode)
         return {};
     m_raw_inode.i_mode = mode;
-    set_metadata_dirty(true);
+    did_modify_metadata();
     return {};
 }
 
@@ -951,7 +951,7 @@ ErrorOr<void> Ext2FSInode::chown(UserID uid, GroupID gid)
     ext2fs_set_i_uid_high(m_raw_inode, uid.value() >> 16);
     m_raw_inode.i_gid = static_cast<u16>(gid.value());
     ext2fs_set_i_gid_high(m_raw_inode, gid.value() >> 16);
-    set_metadata_dirty(true);
+    did_modify_metadata();
     return {};
 }
 
@@ -961,7 +961,7 @@ ErrorOr<void> Ext2FSInode::truncate_locked(u64 size)
     if (static_cast<u64>(m_raw_inode.i_size) == size)
         return {};
     TRY(resize(size));
-    set_metadata_dirty(true);
+    did_modify_metadata();
     did_modify_contents();
     return {};
 }

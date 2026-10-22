@@ -82,15 +82,13 @@ void InodeWithCachedMetadata::set_metadata_dirty(bool metadata_dirty)
         VERIFY(!fs().is_readonly());
     }
 
-    if (m_metadata_dirty == metadata_dirty)
-        return;
-
     m_metadata_dirty = metadata_dirty;
-    if (m_metadata_dirty) {
-        // FIXME: We shouldn't call did_modify_metadata() here, this is only done to preserve the old behavior
-        //        Ext2FS and FatFS. These filesystems should call did_modify_metadata() themselves.
-        did_modify_metadata();
-    }
+}
+
+void InodeWithCachedMetadata::did_modify_metadata()
+{
+    set_metadata_dirty(true);
+    Inode::did_modify_metadata();
 }
 
 }
