@@ -205,6 +205,17 @@ jobs:
           SERENITY_TOOLCHAIN: ${{ inputs.toolchain }}
           SERENITY_ARCH: ${{ inputs.arch }}
 
+      - name: Deploy to GitHub
+        uses: JamesIves/github-pages-deploy-action@v4.9.0
+        if: github.ref == 'refs/heads/master'
+        with:
+          git-config-name: LucasChollet
+          git-config-email: lucas.chollet@serenityos.org
+          repository-name: LucasChollet/coverage-website
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+          folder: ${{ steps.build-parameters.outputs.build_directory }}/reports
+          target-folder: reports
+
       # FIXME: Deploy the static html pages somewhere
       # Note: tmp_profile_data/Coverage.profdata has the entire combined profile data, but creating the raw txt requires
       #       all of the instrumented binaries and the profdata file.
