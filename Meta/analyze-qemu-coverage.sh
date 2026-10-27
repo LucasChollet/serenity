@@ -82,3 +82,12 @@ echo "Generating global report"
 $LLVM_COV_INVOCATION \
         -instr-profile "$GLOBAL_PROFILE" \
         -o "$BUILD_DIR/reports/global/"
+
+# Generate data file for coverage-website.
+GIT_HASH=$(git log -1 --format=%H)
+COMPONENTS=$(find "$BUILD_DIR/reports/" -mindepth 1 -maxdepth 1 -not -name 'global' -type d -printf '%f\n')
+jq -n \
+    --arg hash "$GIT_HASH" \
+    --arg components "$COMPONENTS" \
+    '{serenity_hash: $hash, components: ($components | split("\n"))}' \
+    > "$BUILD_DIR/reports/data.json"
